@@ -36,7 +36,8 @@ def getModel(args):
     print("=> creating model '{}'".format(args.arch))
     model = models.__dict__[args.arch](num_classes = ref.J * 3)
 
-  model = torch.nn.DataParallel(model).cuda()
+  #model = torch.nn.DataParallel(model).cuda()
+  model = model.cuda()
         
   if args.loadModel:
     if os.path.isfile(args.loadModel):
