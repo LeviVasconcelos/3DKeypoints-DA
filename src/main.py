@@ -36,7 +36,10 @@ else:
 
 splits = ['train', 'valSource', 'valTarget']
 
+DIAL = True ############################## FOR COMMON TRAINING THIS SHOULD BE SET TO FALSE #######################
+
 def main():
+  call_count = 0
   now = datetime.datetime.now()
   logger = Logger(args.save_path + '/logs_{}'.format(now.isoformat()))
 
@@ -76,18 +79,20 @@ def main():
   if args.shapeWeight > ref.eps:
     print 'getY...'
     Y = getY(train_dataset.sourceDataset)
-    M = initLatent(trainTarget_loader, model, Y, nViews = args.nViews, S = args.sampleSource, AVG = args.AVG)
+    M = initLatent(trainTarget_loader, model, Y, nViews = args.nViews, S = args.sampleSource, AVG = args.AVG, dial=DIAL)
   
   print 'Start training...'
+  
   for epoch in range(1, args.epochs + 1):
     adjust_learning_rate(optimizer, epoch, args.dropLR)
-    train_mpjpe, train_loss, train_unSuploss = train(args, train_loader, model, optimizer, M, epoch)
+    train_mpjpe, train_loss, train_unSuploss = train(args, train_loader, model, optimizer, M, epoch, dial=DIAL)
     valSource_mpjpe, valSource_loss, valSource_unSuploss = validate(args, 'Source', valSource_loader, model, None, epoch)
     valTarget_mpjpe, valTarget_loss, valTarget_unSuploss = validate(args, 'Target', valTarget_loader, model, None, epoch)
 
     train_loader.dataset.targetDataset.shuffle()
     if args.shapeWeight > ref.eps and epoch % args.intervalUpdateM == 0:
-      M = stepLatent(trainTarget_loader, model, M, Y, nViews = args.nViews, lamb = args.lamb, mu = args.mu, S = args.sampleSource)
+      M = stepLatent(trainTarget_loader, model, M, Y, nViews = args.nViews, lamb = args.lamb, mu = args.mu, S = args.sampleSource, call_count=call_count, dial=DIAL)
+      call_count += 1
 
     logger.write('{} {} {}\n'.format(train_mpjpe, valSource_mpjpe, valTarget_mpjpe))
     

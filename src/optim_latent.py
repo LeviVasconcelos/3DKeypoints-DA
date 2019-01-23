@@ -1,3 +1,7 @@
+import os
+
+import cv2
+
 import ref
 import numpy as np
 from utils.horn87 import horn87, RotMat, Dis
@@ -8,6 +12,14 @@ import torch
 oo = 1e18
 
 DEBUG = False
+SAVE_LATENT = True
+INITIAL_LATENT_ROOT_DIR = '../exp/Chair/initial_latent_models'
+FINAL_LATENT_ROOT_DIR = '../exp/Chair/final_latent_models'
+MAX_LATENT_COUNT = 10
+
+def createDirIfNonExistent(path):
+      if not os.path.isdir(path):
+            os.mkdir(path)
 
 def getY(dataset):
   N = dataset.nImages
@@ -18,16 +30,20 @@ def getY(dataset):
     Y[i] = np.dot(np.dot(RotMat('Z', rotZ), RotMat('Y', rotY)), y.transpose(1, 0)).transpose(1, 0)
   return Y
   
-def initLatent(loader, model, Y, nViews, S, AVG = False):
+def initLatent(loader, model, Y, nViews, S, AVG = False, dial=False):
   model.eval()
+  if dial:
+    print 'dial activated (from init_latent)'
+    model.train()
   nIters = len(loader)
   N = loader.dataset.nImages 
   M = np.zeros((N, ref.J, 3))
   bar = Bar('==>', max=nIters)
   sum_sigma2 = 0
   cnt_sigma2 = 1
+  initial_latent_count = 0
   for i, (input, target, meta) in enumerate(loader):
-    output = (model(torch.autograd.Variable(input)).data).cpu().numpy()
+    output = (model(torch.autograd.Variable(input.cuda())).data).cpu().numpy()
     G = output.shape[0] / nViews
     output = output.reshape(G, nViews, ref.J, 3)
     if AVG:
@@ -52,6 +68,26 @@ def initLatent(loader, model, Y, nViews, S, AVG = False):
             
         id = int(meta[g * nViews, 1])
         M[id] = output[g, p.argmax()]
+
+
+        max_count = 10
+        if SAVE_LATENT and g == 0 and initial_latent_count < MAX_LATENT_COUNT:
+              initial_latent_count += 1
+              createDirIfNonExistent(INITIAL_LATENT_ROOT_DIR)
+              dir_name = 'latent_%d' % (id)
+              dir_name = os.path.join(INITIAL_LATENT_ROOT_DIR, dir_name)
+              createDirIfNonExistent(dir_name)
+              lt_fname = 'latent_model_id_%d_img_%d.lt' % (id, p.argmax())
+              lt_fname = os.path.join(dir_name, lt_fname)
+              np.save(lt_fname, M[id])
+              for j in range(nViews):
+                    m_fname = 'M_%d' % (j)
+                    m_fname = os.path.join(dir_name, m_fname)
+                    np.save(m_fname, output[g, j])
+                    img_fname = 'img_%d.png'% (j)
+                    img_fname = os.path.join(dir_name, img_fname)
+                    cv2.imwrite(img_fname, 
+                                (input[g * nViews + j] * 255).numpy().transpose(1, 2, 0).astype(np.uint8))
         
         if DEBUG and g == 0:
           print 'M[id]', id, M[id], p.argmax()
@@ -72,8 +108,11 @@ def initLatent(loader, model, Y, nViews, S, AVG = False):
   #print 'mean sigma2', sum_sigma2 / cnt_sigma2
   return M
   
-def stepLatent(loader, model, M_, Y, nViews, lamb, mu, S):
+def stepLatent(loader, model, M_, Y, nViews, lamb, mu, S, call_count=-1, dial=False):
   model.eval()
+  if dial:
+    model.train()
+    print 'dial activated (from step_latent)'
   nIters = len(loader)
   if nIters == 0:
     return None
@@ -84,8 +123,9 @@ def stepLatent(loader, model, M_, Y, nViews, lamb, mu, S):
   ids = []
   Mij = np.zeros((N, ref.J, 3))
   err, num = 0, 0
+  latent_count = 0
   for i, (input, target, meta) in enumerate(loader):
-    output = (model(torch.autograd.Variable(input)).data).cpu().numpy()
+    output = (model(torch.autograd.Variable(input.cuda())).data).cpu().numpy()
     G = output.shape[0] / nViews
     output = output.reshape(G, nViews, ref.J, 3)
     for g in range(G):
@@ -153,6 +193,18 @@ def stepLatent(loader, model, M_, Y, nViews, lamb, mu, S):
   
   for id in ids:
     M[id] = (Mij[id] * (lamb / mu) + Mi[id] + MI[id] / (Y.shape[0] / S) * len(ids)) / (lamb / mu + 1 + cnt[id] / (Y.shape[0] / S) * (len(ids)))
+    #print 'Latent updated!'
+    if SAVE_LATENT and latent_count < MAX_LATENT_COUNT:
+      latent_count += 1
+      createDirIfNonExistent(FINAL_LATENT_ROOT_DIR)
+      dir_name = 'final_latent_%d' % (id)
+      dir_name = os.path.join(FINAL_LATENT_ROOT_DIR, dir_name)
+      createDirIfNonExistent(dir_name)
+      lt_fname = 'final_latent_model_%d.lt' % (call_count)
+      lt_fname = os.path.join(dir_name, lt_fname)
+      np.save(lt_fname, M[id])
+
+
   if DEBUG:
     for id in ids:
       debugger = Debugger()

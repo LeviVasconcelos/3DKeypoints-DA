@@ -7,7 +7,7 @@ import ref
 from progress.bar import Bar
 from layers.ShapeConsistencyCriterion import ShapeConsistencyCriterion
 
-def step(args, split, epoch, loader, model, optimizer = None, M = None, f = None, tag = None):
+def step(args, split, epoch, loader, model, optimizer = None, M = None, f = None, tag = None, dial=False):
   losses, mpjpe, mpjpe_r = AverageMeter(), AverageMeter(), AverageMeter()
   viewLosses, shapeLosses, supLosses = AverageMeter(), AverageMeter(), AverageMeter()
   
@@ -18,10 +18,13 @@ def step(args, split, epoch, loader, model, optimizer = None, M = None, f = None
   bar = Bar('{}'.format(ref.category), max=len(loader))
   
   nViews = loader.dataset.nViews
+  if dial:
+    print 'dial activated (from train function)'
+    model.eval()
   for i, (input, target, meta) in enumerate(loader):
     input_var = torch.autograd.Variable(input.cuda())
     target_var = torch.autograd.Variable(target)
-    output = (model(input_var)).cpu()
+    output = model(input_var)
     loss = ShapeConsistencyCriterion(nViews, supWeight = 1, unSupWeight = args.shapeWeight, M = M)(output.cpu(), target_var, torch.autograd.Variable(meta))
 
     if split == 'test':
@@ -62,12 +65,11 @@ def step(args, split, epoch, loader, model, optimizer = None, M = None, f = None
   bar.finish()
   return mpjpe.avg, losses.avg, shapeLosses.avg
     
-def train(args, train_loader, model, optimizer, M, epoch):
-  return step(args, 'train', epoch, train_loader, model, optimizer, M = M)
+def train(args, train_loader, model, optimizer, M, epoch, dial=False):
+  return step(args, 'train', epoch, train_loader, model, optimizer, M = M, dial=dial)
 
 def validate(args, supTag, val_loader, model, M, epoch):
   return step(args, 'val' + supTag, epoch, val_loader, model, M = M)
 
 def test(args, loader, model, M, f, tag):
   return step(args, 'test', 0, loader, model, M = M, f = f, tag = tag)
-
