@@ -36,7 +36,7 @@ else:
 
 splits = ['train', 'valSource', 'valTarget']
 
-DIAL = True ############################## FOR COMMON TRAINING THIS SHOULD BE SET TO FALSE #######################
+DIAL = args.approx_dial 
 
 def main():
   call_count = 0

@@ -39,6 +39,7 @@ class opts():
     self.parser.add_argument('-sampleSource', default=1, type = int, help='sample source domain')
     self.parser.add_argument('-lamb', default=1, type = float, help='lamb')
     self.parser.add_argument('-mu', default=0.1, type = float, help='mu')
+    self.parser.add_argument('-approx_dial', action = 'store_true', help='train with dial approximation')
     
     
   def parse(self):
