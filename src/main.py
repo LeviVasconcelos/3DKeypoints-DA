@@ -45,7 +45,8 @@ def main():
 
   model = getModel(args)
   cudnn.benchmark = True
-  optimizer = torch.optim.SGD(model.parameters(), args.LR,
+  params_to_optim = list(filter(lambda p: p.requires_grad, model.parameters()))
+  optimizer = torch.optim.SGD(params_to_optim, args.LR,
                               momentum=args.momentum,
                               weight_decay=args.weight_decay)
 

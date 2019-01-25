@@ -46,6 +46,44 @@ class BasicBlock(nn.Module):
         return out
 
 
+class Bottleneck(nn.Module):
+    expansion = 4
+
+    def __init__(self, inplanes, planes, stride=1, downsample=None):
+        super(Bottleneck, self).__init__()
+        self.conv1 = nn.Conv2d(inplanes, planes, kernel_size=1, bias=False)
+        self.bn1 = DomainAdaptationLayer(planes)
+        self.conv2 = nn.Conv2d(planes, planes, kernel_size=3, stride=stride,
+                               padding=1, bias=False)
+        self.bn2 = DomainAdaptationLayer(planes)
+        self.conv3 = nn.Conv2d(planes, planes * 4, kernel_size=1, bias=False)
+        self.bn3 = DomainAdaptationLayer(planes * 4)
+        self.relu = nn.ReLU(inplace=True)
+        self.downsample = downsample
+        self.stride = stride
+
+    def forward(self, x):
+        residual = x
+
+        out = self.conv1(x)
+        out = self.bn1(out)
+        out = self.relu(out)
+
+        out = self.conv2(out)
+        out = self.bn2(out)
+        out = self.relu(out)
+
+        out = self.conv3(out)
+        out = self.bn3(out)
+
+        if self.downsample is not None:
+            residual = self.downsample(x)
+
+        out += residual
+        out = self.relu(out)
+
+        return out
+
 class ResNet(nn.Module):
 
     def __init__(self, block, layers, num_classes=1000):
@@ -114,7 +152,12 @@ class ResNet(nn.Module):
         dict_model = self.state_dict()
         for key in state_dict.keys():
             if "running" not in key:
-                dict_model[key].data.copy_(state_dict[key].data)
+                dict_model[key].copy_(state_dict[key].data)
+                
+    def print_no_grad_params(self):
+        for key, param in self.state_dict():
+            if param.requires_grad == False:
+                print key
 
 
 def resnet18(fc_classes=1000, pretrained=None):
@@ -136,12 +179,14 @@ def resnet50(fc_classes=1000, pretrained=None):
         fc_classes (int): The number of classes the model has to output. E.g. ImageNet12 has 1000 classes
         pretrained (bool): If True, returns a model pre-trained on ImageNet
     """
-    model = ResNet(BasicBlock, [3, 4, 6, 3], num_classes=fc_classes)
+    model = ResNet(Bottleneck, [3, 4, 6, 3], num_classes=fc_classes)
     if pretrained:
-          if 'http' in model_urls[pretrained]:
-                model.load_pretrained(torch_models.model_zoo.load_url(model_urls[pretrained]))
+          if 'http' in model_urls['resnet50']:
+                print 'loading from net'
+                model.load_pretrained(torch.utils.model_zoo.load_url(model_urls[pretrained]))
           else:
+                print 'loading from file'
                 model.load_pretrained(torch.load(model_urls[pretrained])['state_dict'])
-        # DEBUG
-    assert check_equals_bn(model.state_dict(), torch.load(model_urls[pretrained])['state_dict'])
+                # DEBUG
+                assert check_equals_bn(model.state_dict(), torch.load(model_urls[pretrained])['state_dict'])
     return model
