@@ -4,6 +4,7 @@ import torch
 import torch.nn as nn
 import os
 import torchvision.models as models
+import models.DIALResNet as dial
 model_names = sorted(name for name in models.__dict__
     if name.islower() and not name.startswith("__")
     and callable(models.__dict__[name]))
@@ -13,7 +14,8 @@ def getModel(args):
   # create model
   if args.pretrained:
     print("=> using pre-trained model '{}'".format(args.arch))
-    model = models.__dict__[args.arch](pretrained=True)
+    #model = models.__dict__[args.arch](pretrained=True)
+    model = dial.resnet50(pretrained='resnet50')
     if args.arch.startswith('resnet'):
       if '18' in args.arch:
         model.fc = nn.Linear(512 * 1, ref.J * 3)
@@ -34,7 +36,8 @@ def getModel(args):
       model.classifier = nn.Sequential(*feature_model)
   else:
     print("=> creating model '{}'".format(args.arch))
-    model = models.__dict__[args.arch](num_classes = ref.J * 3)
+    #model = models.__dict__[args.arch](num_classes = ref.J * 3)
+    model = dial.resnet50(fc_classes = ref.J * 3)
 
   #model = torch.nn.DataParallel(model).cuda()
   model = model.cuda()
