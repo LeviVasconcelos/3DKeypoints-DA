@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 import torchvision.models
-from utils import check_equals_bn
+from utils.utils import check_equals_bn
 
 from layers.DIAL import DomainAdaptationLayer
 
