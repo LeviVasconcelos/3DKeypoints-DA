@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-import torchvision.models
+import torchvision.models as torch_models
 from utils.utils import check_equals_bn
 
 from layers.DIAL import DomainAdaptationLayer
@@ -138,7 +138,10 @@ def resnet50(fc_classes=1000, pretrained=None):
     """
     model = ResNet(BasicBlock, [3, 4, 6, 3], num_classes=fc_classes)
     if pretrained:
-        model.load_pretrained(torch.load(model_urls[pretrained])['state_dict'])
+          if 'http' in model_urls[pretrained]:
+                model.load_pretrained(torch_models.model_zoo.load_url(model_urls[pretrained]))
+          else:
+                model.load_pretrained(torch.load(model_urls[pretrained])['state_dict'])
         # DEBUG
-        assert check_equals_bn(model.state_dict(), torch.load(model_urls[pretrained])['state_dict'])
+    assert check_equals_bn(model.state_dict(), torch.load(model_urls[pretrained])['state_dict'])
     return model
