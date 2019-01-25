@@ -6,14 +6,14 @@ class DomainAdaptationLayer(nn.Module):
         super(DomainAdaptationLayer, self).__init__()
         
         self.bn_source = nn.BatchNorm2d(planes)
-        nn.init.constant_(self.bn_source.weight, 1)
-        nn.init.constant_(self.bn_source.bias, 0)
+        nn.init.constant(self.bn_source.weight, 1)
+        nn.init.constant(self.bn_source.bias, 0)
         self.bn_source.weight.requires_grad = False
         self.bn_source.bias.requires_grad = False
         
         self.bn_target = nn.BatchNorm2d(planes)
-        nn.init.constant_(self.bn_target.weight, 1)
-        nn.init.constant_(self.bn_target.bias, 0)
+        nn.init.constant(self.bn_target.weight, 1)
+        nn.init.constant(self.bn_target.bias, 0)
         self.bn_target.weight.requires_grad = False
         self.bn_target.bias.requires_grad = False
         
