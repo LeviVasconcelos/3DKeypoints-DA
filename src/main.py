@@ -16,7 +16,7 @@ from datasets.Fusion import Fusion
 
 from utils.logger import Logger
 from opts import opts
-from train import train, validate, test
+from train import train, validate, test, dial_train
 from optim_latent import initLatent, stepLatent, getY
 from model import getModel
 from utils.utils import collate_fn_cat
@@ -66,32 +66,48 @@ def main():
     test(args, valTarget_loader, model, None, f['valTarget'], 'valTarget')
     return
   
-  train_dataset = Fusion(SourceDataset, TargetDataset, nViews = args.nViews, targetRatio = args.targetRatio, totalTargetIm = args.totalTargetIm)
-  trainTarget_dataset = train_dataset.targetDataset
+  fusion_dataset = Fusion(SourceDataset, TargetDataset, nViews = args.nViews, targetRatio = args.targetRatio, totalTargetIm = args.totalTargetIm)
+  trainTarget_dataset = TargetDataset
+  trainSource_dataset = SourceDataset
   
-  train_loader = torch.utils.data.DataLoader(
-      train_dataset, batch_size=args.batchSize, shuffle=not args.test,
+  fusion_loader = torch.utils.data.DataLoader(
+      fusion_dataset, batch_size=args.batchSize, shuffle=not args.test,
+      num_workers=args.workers if not args.test else 1, pin_memory=True, collate_fn=collate_fn_cat)
+  trainSource_loader = torch.utils.data.DataLoader(
+      trainSource_dataset, batch_size=args.batchSize, shuffle=True,
       num_workers=args.workers if not args.test else 1, pin_memory=True, collate_fn=collate_fn_cat)
   trainTarget_loader = torch.utils.data.DataLoader(
-      trainTarget_dataset, batch_size=args.batchSize, shuffle=False,
+      trainTarget_dataset, batch_size=args.batchSize, shuffle=True,
       num_workers=args.workers if not args.test else 1, pin_memory=True, collate_fn=collate_fn_cat)
 
   M = None
   if args.shapeWeight > ref.eps:
     print 'getY...'
-    Y = getY(train_dataset.sourceDataset)
+    model.set_domain(source=False)
+    Y = getY(SourceDataset)
     M = initLatent(trainTarget_loader, model, Y, nViews = args.nViews, S = args.sampleSource, AVG = args.AVG, dial=DIAL)
   
   print 'Start training...'
   
   for epoch in range(1, args.epochs + 1):
     adjust_learning_rate(optimizer, epoch, args.dropLR)
-    train_mpjpe, train_loss, train_unSuploss = train(args, train_loader, model, optimizer, M, epoch, dial=DIAL)
+    if args.shapeWeight > ref.eps and args.dialModel:
+          train_loader = zip(trainSource_loader, trainTarget_loader)
+          train_mpjpe, train_loss, train_unSuploss = dial_train(args, train_loader, model, optimizer, M, epoch, dial=DIAL, nViews=args.nViews)
+    else:
+          train_loader = fusion_loader
+          train_mpjpe, train_loss, train_unSuploss = train(args, train_loader, model, optimizer, M, epoch, dial=DIAL, nViews=args.nViews)
+    if args.dialModel:
+          model.set_domain(source=True)
     valSource_mpjpe, valSource_loss, valSource_unSuploss = validate(args, 'Source', valSource_loader, model, None, epoch)
+    if args.dialModel:
+          model.set_domain(source=False)
     valTarget_mpjpe, valTarget_loss, valTarget_unSuploss = validate(args, 'Target', valTarget_loader, model, None, epoch)
 
     train_loader.dataset.targetDataset.shuffle()
     if args.shapeWeight > ref.eps and epoch % args.intervalUpdateM == 0:
+      if args.dialModel:
+            model.set_domain(source=False)
       M = stepLatent(trainTarget_loader, model, M, Y, nViews = args.nViews, lamb = args.lamb, mu = args.mu, S = args.sampleSource, call_count=call_count, dial=DIAL)
       call_count += 1
 

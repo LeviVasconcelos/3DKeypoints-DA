@@ -24,6 +24,7 @@ class opts():
     self.parser.add_argument('-loadModel', default='', type=str, help='path to loadmodel (default: none)')
     self.parser.add_argument('-pretrained', action='store_true', help='use pre-trained model')
     self.parser.add_argument('-shapeNetFullTest', action='store_true', help='shapeNetFullTest')
+    self.parser.add_argument('-dialModel', action='store_true', help='informs whether the model has dial layers')
 
     self.parser.add_argument('-intervalUpdateM', default=5, type=int, help='update M')
     self.parser.add_argument('-saveVis', action = 'store_true', help='')
