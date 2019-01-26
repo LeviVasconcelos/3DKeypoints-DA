@@ -168,9 +168,14 @@ def resnet18(fc_classes=1000, pretrained=None):
     """
     model = ResNet(BasicBlock, [2, 2, 2, 2], num_classes=fc_classes)
     if pretrained:
-        model.load_pretrained(torch.load(model_urls[pretrained])['state_dict'])
-        # DEBUG
-        assert check_equals_bn(model.state_dict(), torch.load(model_urls[pretrained])['state_dict'])
+          if 'http' in model_urls[pretrained]:
+                print 'loading from net'
+                model.load_pretrained(torch.utils.model_zoo.load_url(model_urls[pretrained]))
+          else:
+                print 'loading from file'
+                model.load_pretrained(torch.load(model_urls[pretrained])['state_dict'])
+                # DEBUG
+                assert check_equals_bn(model.state_dict(), torch.load(model_urls[pretrained])['state_dict'])
     return model
 
 def resnet50(fc_classes=1000, pretrained=None):
@@ -181,7 +186,7 @@ def resnet50(fc_classes=1000, pretrained=None):
     """
     model = ResNet(Bottleneck, [3, 4, 6, 3], num_classes=fc_classes)
     if pretrained:
-          if 'http' in model_urls['resnet50']:
+          if 'http' in model_urls[pretrained]:
                 print 'loading from net'
                 model.load_pretrained(torch.utils.model_zoo.load_url(model_urls[pretrained]))
           else:
