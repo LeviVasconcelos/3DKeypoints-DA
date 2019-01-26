@@ -122,7 +122,7 @@ def dial_step(args, split, epoch, loader, model, optimizer = None, M = None, f =
     mpjpe_r_this = accuracy_dis(output.data, target, meta)
     shapeLoss = shapeConsistency(output.data, meta, nViews, M, split = split)
 
-    losses.update(loss.data[0], input.size(0))
+    losses.update(source_loss.data[0] + target_loss[0], input.size(0))
     shapeLosses.update(shapeLoss, input.size(0))
     mpjpe.update(mpjpe_this, input.size(0))
     mpjpe_r.update(mpjpe_r_this, input.size(0))
