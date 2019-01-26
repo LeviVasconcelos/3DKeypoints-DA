@@ -104,7 +104,10 @@ def main():
           model.set_domain(source=False)
     valTarget_mpjpe, valTarget_loss, valTarget_unSuploss = validate(args, 'Target', valTarget_loader, model, None, epoch)
 
-    train_loader.dataset.targetDataset.shuffle()
+    if args.shapeWeight > ref.eps:
+          trainTarget_loader.dataset.shuffle()
+    else:
+          train_loader.dataset.targetDataset.shuffle()
     if args.shapeWeight > ref.eps and epoch % args.intervalUpdateM == 0:
       if args.dialModel:
             model.set_domain(source=False)
