@@ -67,8 +67,8 @@ def main():
     return
   
   fusion_dataset = Fusion(SourceDataset, TargetDataset, nViews = args.nViews, targetRatio = args.targetRatio, totalTargetIm = args.totalTargetIm)
-  trainTarget_dataset = TargetDataset
-  trainSource_dataset = SourceDataset
+  trainTarget_dataset = fusion_dataset.targetDataset
+  trainSource_dataset = fusion_dataset.sourceDataset
   
   fusion_loader = torch.utils.data.DataLoader(
       fusion_dataset, batch_size=args.batchSize, shuffle=not args.test,
