@@ -84,7 +84,7 @@ def main():
   if args.shapeWeight > ref.eps:
     print 'getY...'
     model.set_domain(source=False)
-    Y = getY(SourceDataset)
+    Y = getY(SourceDataset('train', args.nViews))
     M = initLatent(trainTarget_loader, model, Y, nViews = args.nViews, S = args.sampleSource, AVG = args.AVG, dial=DIAL)
   
   print 'Start training...'
