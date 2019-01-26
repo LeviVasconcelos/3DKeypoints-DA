@@ -76,8 +76,8 @@ def dial_step(args, split, epoch, loader, model, optimizer = None, M = None, f =
     model.eval()
   bar = Bar('{}'.format(ref.category), max=len(loader))
   
-  for i, (sourceInput, sourceLabel, sourceMeta), (targetInput, targetLabel, targetMeta) in enumerate(loader):
-
+  for i, data in enumerate(loader):
+    (sourceInput, sourceLabel, sourceMeta), (targetInput, targetLabel, targetMeta) = data
     source_input_var = torch.autograd.Variable(sourceInput.cuda())
     source_label_var = torch.autograd.Variable(sourceLabel)
     model.set_domain(source=True)
