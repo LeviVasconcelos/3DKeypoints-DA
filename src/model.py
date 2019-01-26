@@ -15,7 +15,7 @@ def getModel(args):
   if args.pretrained:
     print("=> using pre-trained model '{}'".format(args.arch))
     #model = models.__dict__[args.arch](pretrained=True)
-    model = dial.resnet50(pretrained='resnet50')
+    model = dial.resnet18(pretrained='resnet18') ########### Common is to use resnet50
     if args.arch.startswith('resnet'):
       if '18' in args.arch:
         model.fc = nn.Linear(512 * 1, ref.J * 3)
