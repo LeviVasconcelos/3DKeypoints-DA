@@ -62,7 +62,11 @@ def main():
     f = {}
     for split in splits:
       f['{}'.format(split)] = open('{}/{}.txt'.format(args.save_path, split), 'w')
+    if args.dialModel:
+          model.set_domain(source=True)
     test(args, valSource_loader, model, None, f['valSource'], 'valSource')
+    if args.dialModel:
+          model.set_domain(source=False)
     test(args, valTarget_loader, model, None, f['valTarget'], 'valTarget')
     return
   
