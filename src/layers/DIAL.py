@@ -1,5 +1,3 @@
-import copy
-
 import torch
 import torch.nn as nn
 
@@ -36,5 +34,5 @@ class DomainAdaptationLayer(nn.Module):
         res = self.weight.view(1, self.weight.size()[0], 1, 1) * out + self.bias.view(1, self.weight.size()[0], 1, 1)
         return res
   
-     def init_target_as_source(self):
-           self.bn_target.load_state_dict(self.bn_source.state_dict())
+    def init_target_as_source(self):
+        self.bn_target.load_state_dict(self.bn_source.state_dict())
