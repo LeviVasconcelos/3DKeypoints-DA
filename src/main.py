@@ -69,7 +69,8 @@ def main():
           model.set_domain(source=False)
     test(args, valTarget_loader, model, None, f['valTarget'], 'valTarget')
     return
-  
+  if args.shapeWeight > ref.eps and args.dialModel:
+        model.init_target_weights()
   fusion_dataset = Fusion(SourceDataset, TargetDataset, nViews = args.nViews, targetRatio = args.targetRatio, totalTargetIm = args.totalTargetIm)
   trainTarget_dataset = fusion_dataset.targetDataset
   trainSource_dataset = fusion_dataset.sourceDataset
