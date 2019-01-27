@@ -58,6 +58,8 @@ def main():
   valTarget_loader = torch.utils.data.DataLoader(valTarget_dataset, batch_size = 1, 
                         shuffle=False, num_workers=1, pin_memory=True, collate_fn=collate_fn_cat)
   
+  if args.dialModel:
+        print 'dial model on'
   if args.test:
     f = {}
     for split in splits:
@@ -88,7 +90,8 @@ def main():
   M = None
   if args.shapeWeight > ref.eps:
     print 'getY...'
-    model.set_domain(source=False)
+    if args.dialModel:
+      model.set_domain(source=False)
     Y = getY(SourceDataset('train', args.nViews))
     M = initLatent(trainTarget_loader, model, Y, nViews = args.nViews, S = args.sampleSource, AVG = args.AVG, dial=DIAL)
   
