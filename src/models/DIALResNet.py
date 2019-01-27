@@ -1,3 +1,5 @@
+import copy
+
 import torch
 import torch.nn as nn
 import torchvision.models as torch_models
@@ -158,6 +160,11 @@ class ResNet(nn.Module):
         for key, param in self.state_dict():
             if param.requires_grad == False:
                 print key
+    
+    def init_target_weights(self):
+          for m in self.modules():
+            if isinstance(m, DomainAdaptationLayer):
+                  m.init_target_as_source()
 
 
 def resnet18(fc_classes=1000, pretrained=None):
