@@ -1,3 +1,4 @@
+
 import torch
 import numpy as np
 from utils.utils import AverageMeter, show3D
@@ -77,12 +78,18 @@ def dial_step(args, split, epoch, loader, model, optimizer = None, M = None, f =
   bar = Bar('{}'.format(ref.category), max=len(loader))
   
   for i, data in enumerate(loader):
+    if split == 'train':
+      optimizer.zero_grad()
     (sourceInput, sourceLabel, sourceMeta), (targetInput, targetLabel, targetMeta) = data
     source_input_var = torch.autograd.Variable(sourceInput.cuda())
     source_label_var = torch.autograd.Variable(sourceLabel)
     model.set_domain(source=True)
     source_output = model(source_input_var)
     source_loss = ShapeConsistencyCriterion(nViews, supWeight = 1, unSupWeight = args.shapeWeight, M = M)(source_output.cpu(), source_label_var, torch.autograd.Variable(sourceMeta))
+    if split == 'train':
+          source_loss.backward()
+    source_loss_value = source_loss.data[0]
+    del source_loss
     
     target_input_var = torch.autograd.Variable(targetInput.cuda())
     target_label_var = torch.autograd.Variable(targetLabel)
@@ -91,9 +98,10 @@ def dial_step(args, split, epoch, loader, model, optimizer = None, M = None, f =
     target_loss = ShapeConsistencyCriterion(nViews, supWeight = 1, unSupWeight = args.shapeWeight, M = M)(target_output.cpu(), target_label_var, torch.autograd.Variable(targetMeta))
     
     if split == 'train':
-      optimizer.zero_grad()
-      source_loss.backward()
       target_loss.backward()
+    target_loss_value = target_loss.data[0]
+    del target_loss
+    if split == 'train':
       optimizer.step()
     
     input = torch.cat((sourceInput, targetInput), 0)
@@ -122,7 +130,7 @@ def dial_step(args, split, epoch, loader, model, optimizer = None, M = None, f =
     mpjpe_r_this = accuracy_dis(output.data, target, meta)
     shapeLoss = shapeConsistency(output.data, meta, nViews, M, split = split)
 
-    losses.update(source_loss.data[0] + target_loss.data[0], input.size(0))
+    losses.update(source_loss_value + target_loss_value, input.size(0))
     shapeLosses.update(shapeLoss, input.size(0))
     mpjpe.update(mpjpe_this, input.size(0))
     mpjpe_r.update(mpjpe_r_this, input.size(0))
