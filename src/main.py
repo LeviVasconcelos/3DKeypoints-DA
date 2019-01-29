@@ -1,6 +1,8 @@
 import os
 import time
 import datetime
+import itertools
+
 import torch
 import torch.nn as nn
 import torch.nn.parallel
@@ -100,7 +102,7 @@ def main():
   for epoch in range(1, args.epochs + 1):
     adjust_learning_rate(optimizer, epoch, args.dropLR)
     if args.shapeWeight > ref.eps and args.dialModel:
-          train_loader = zip(trainSource_loader, trainTarget_loader)
+          train_loader = itertools.izip(trainSource_loader, itertools.cycle(trainTarget_loader))
           train_mpjpe, train_loss, train_unSuploss = dial_train(args, train_loader, model, optimizer, M, epoch, dial=DIAL, nViews=args.nViews)
     else:
           train_loader = fusion_loader
