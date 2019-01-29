@@ -1,4 +1,5 @@
 import copy
+import itertools
 
 import torch
 import torch.nn as nn
@@ -155,6 +156,11 @@ class ResNet(nn.Module):
         for key in state_dict.keys():
             if "running" not in key:
                 dict_model[key].copy_(state_dict[key].data)
+            else: #Copy into bn_source
+                  split = key.split(".")
+                  new_key = ".".join(split[0:-1]) + ".".join(["", "bn_source", split[-1]])
+                  dict_model[nkey].copy_(state_dict[key].data)
+
                 
     def print_no_grad_params(self):
         for key, param in self.state_dict():
