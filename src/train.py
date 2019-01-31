@@ -27,7 +27,7 @@ def step(args, split, epoch, loader, model, optimizer = None, M = None, f = None
     input_var = torch.autograd.Variable(input.cuda())
     target_var = torch.autograd.Variable(target)
     output = model(input_var)
-    loss = ShapeConsistencyCriterion(nViews, supWeight = 1, unSupWeight = args.shapeWeight, M = M)(output, target_var, torch.autograd.Variable(meta))
+    loss = ShapeConsistencyCriterion(nViews, supWeight = 1, unSupWeight = args.shapeWeight, M = M)(output.cpu(), target_var, torch.autograd.Variable(meta))
 
     if split == 'test':
       for j in range(input.numpy().shape[0]):
