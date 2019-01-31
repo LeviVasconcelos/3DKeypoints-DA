@@ -159,7 +159,7 @@ class ResNet(nn.Module):
             else: #Copy into bn_source
                   split = key.split(".")
                   new_key = ".".join(split[0:-1]) + ".".join(["", "bn_source", split[-1]])
-                  dict_model[nkey].copy_(state_dict[key].data)
+                  dict_model[new_key].copy_(state_dict[key])
 
                 
     def print_no_grad_params(self):

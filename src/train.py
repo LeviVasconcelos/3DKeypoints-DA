@@ -27,7 +27,7 @@ def step(args, split, epoch, loader, model, optimizer = None, M = None, f = None
     input_var = torch.autograd.Variable(input.cuda())
     target_var = torch.autograd.Variable(target)
     output = model(input_var)
-    loss = ShapeConsistencyCriterion(nViews, supWeight = 1, unSupWeight = args.shapeWeight, M = M)(output.cpu(), target_var, torch.autograd.Variable(meta))
+    loss = ShapeConsistencyCriterion(nViews, supWeight = 1, unSupWeight = args.shapeWeight, M = M)(output, target_var, torch.autograd.Variable(meta))
 
     if split == 'test':
       for j in range(input.numpy().shape[0]):
@@ -67,7 +67,7 @@ def step(args, split, epoch, loader, model, optimizer = None, M = None, f = None
   bar.finish()
   return mpjpe.avg, losses.avg, shapeLosses.avg
 
-def dial_step(args, split, epoch, loader, model, optimizer = None, M = None, f = None, tag = None, dial=False, nViews=ref.nViews):
+def dial_step(args, split, epoch, (loader, len_loader), model, optimizer = None, M = None, f = None, tag = None, dial=False, nViews=ref.nViews):
   losses, mpjpe, mpjpe_r = AverageMeter(), AverageMeter(), AverageMeter()
   viewLosses, shapeLosses, supLosses = AverageMeter(), AverageMeter(), AverageMeter()
   
@@ -75,7 +75,7 @@ def dial_step(args, split, epoch, loader, model, optimizer = None, M = None, f =
     model.train()
   else:
     model.eval()
-  bar = Bar('{}'.format(ref.category), max=len(loader))
+  bar = Bar('{}'.format(ref.category), max=len_loader)
   
   for i, data in enumerate(loader):
     if split == 'train':
@@ -136,7 +136,7 @@ def dial_step(args, split, epoch, loader, model, optimizer = None, M = None, f =
     mpjpe_r.update(mpjpe_r_this, input.size(0))
     
     
-    Bar.suffix = '{split:10}: [{0:2}][{1:3}/{2:3}] | Total: {total:} | ETA: {eta:} | Loss {loss.avg:.6f} | shapeLoss {shapeLoss.avg:.6f} | AE {mpjpe.avg:.6f} | ShapeDis {mpjpe_r.avg:.6f}'.format(epoch, i, len(loader), total=bar.elapsed_td, eta=bar.eta_td, loss=losses, mpjpe=mpjpe, split = split, shapeLoss = shapeLosses, mpjpe_r = mpjpe_r)
+    Bar.suffix = '{split:10}: [{0:2}][{1:3}/{2:3}] | Total: {total:} | ETA: {eta:} | Loss {loss.avg:.6f} | shapeLoss {shapeLoss.avg:.6f} | AE {mpjpe.avg:.6f} | ShapeDis {mpjpe_r.avg:.6f}'.format(epoch, i, len_loader, total=bar.elapsed_td, eta=bar.eta_td, loss=losses, mpjpe=mpjpe, split = split, shapeLoss = shapeLosses, mpjpe_r = mpjpe_r)
     bar.next()
       
   bar.finish()
