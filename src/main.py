@@ -95,7 +95,7 @@ def main():
     if args.dialModel:
       model.set_domain(source=False)
     Y = getY(SourceDataset('train', args.nViews))
-    M = initLatent(trainTarget_loader, model, Y, nViews = args.nViews, S = args.sampleSource, AVG = args.AVG, dial=DIAL)
+    M = initLatent(trainTarget_loader, model, Y, nViews = args.nViews, S = args.sampleSource, AVG = args.AVG, dial=args.dialModel)
   
   print 'Start training...'
   
@@ -106,7 +106,7 @@ def main():
           train_loader = fusion_loader
           #len_loader = max(len(trainSource_loader), len(trainTarget_loader))
           len_loader = len(train_loader)
-          train_mpjpe, train_loss, train_unSuploss = dial_train(args, (train_loader, len_loader), model, optimizer, M, epoch, dial=DIAL, nViews=args.nViews)
+          train_mpjpe, train_loss, train_unSuploss = dial_train(args, (train_loader, len_loader), model, optimizer, M, epoch, dial=args.dialModel, nViews=args.nViews)
     else:
           train_loader = fusion_loader
           train_mpjpe, train_loss, train_unSuploss = train(args, train_loader, model, optimizer, M, epoch, dial=DIAL, nViews=args.nViews)
@@ -124,7 +124,7 @@ def main():
     if args.shapeWeight > ref.eps and epoch % args.intervalUpdateM == 0:
       if args.dialModel:
             model.set_domain(source=False)
-      M = stepLatent(trainTarget_loader, model, M, Y, nViews = args.nViews, lamb = args.lamb, mu = args.mu, S = args.sampleSource, call_count=call_count, dial=DIAL)
+      M = stepLatent(trainTarget_loader, model, M, Y, nViews = args.nViews, lamb = args.lamb, mu = args.mu, S = args.sampleSource, call_count=call_count, dial=args.dialModel)
       call_count += 1
 
     logger.write('{} {} {}\n'.format(train_mpjpe, valSource_mpjpe, valTarget_mpjpe))

@@ -101,12 +101,18 @@ def dial_step(args, split, epoch, (loader, len_loader), model, optimizer = None,
           sourceInput = torch.stack(source_input_list)
           sourceLabel = torch.stack([x for i,x in enumerate(target) if abs(meta[i,0]) == 1])
           sourceMeta = torch.stack([x for i,x in enumerate(meta) if abs(meta[i,0]) == 1])
+          print "source input shape:" + str(sourceInput.size())
+          print "source label shape:" + str(sourceLabel.size())
+          print "source meta shape:" + str(sourceMeta.size())
     
     target_input_list = [x for i,x in enumerate(input) if abs(meta[i,0]) > 1]
     if (len(target_input_list) > 0):
           targetInput = torch.stack(target_input_list)
           targetLabel = torch.stack([x for i,x in enumerate(target) if abs(meta[i,0]) > 1])
           targetMeta = torch.stack([x for i,x in enumerate(meta) if abs(meta[i,0]) > 1])
+          print "targe input shape:" + str(targetInput.size())
+          print "target label shape:" + str(targetLabel.size())
+          print "target meta shape:" + str(targetMeta.size())
     
     if (len(source_input_list) > 0):
           source_input_var = torch.autograd.Variable(sourceInput.cuda())
@@ -129,7 +135,7 @@ def dial_step(args, split, epoch, (loader, len_loader), model, optimizer = None,
           target_loss_value = target_loss.data[0]
           del target_loss
     if split == 'train':
-      optimizer.step()
+          optimizer.step()
     
     input_ = torch.cat((sourceInput, targetInput), 0)
     target_ = torch.cat((sourceLabel, targetLabel), 0)
