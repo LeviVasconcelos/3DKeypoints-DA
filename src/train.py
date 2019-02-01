@@ -137,7 +137,10 @@ def dial_step(args, split, epoch, (loader, len_loader), model, optimizer = None,
           output_ = torch.cat((source_output, target_output), 0)
     else:
           output_ = source_output if source_output.nelement() > 0 else target_output
-    meta_ = torch.cat((sourceMeta, targetMeta), 0)
+    if (sourceMeta.nelement() > 0 and targetMeta.nelement() > 0):
+          meta_ = torch.cat((sourceMeta, targetMeta), 0)
+    else:
+          meta_ = sourceMeta if sourceMeta.nelement() > 0 else targetMeta
     if split == 'test':
       for j in range(input_.numpy().shape[0]):
         img = (input_.numpy()[j] * 255).transpose(1, 2, 0).astype(np.uint8)
