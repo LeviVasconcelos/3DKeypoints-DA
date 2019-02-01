@@ -14,6 +14,8 @@ target shape:torch.Size([64, 10, 3])
 meta shape:torch.Size([64, 15])
 '''
 
+__DEBUG = True
+
 def step(args, split, epoch, loader, model, optimizer = None, M = None, f = None, tag = None, dial=False, nViews=ref.nViews):
   losses, mpjpe, mpjpe_r = AverageMeter(), AverageMeter(), AverageMeter()
   viewLosses, shapeLosses, supLosses = AverageMeter(), AverageMeter(), AverageMeter()
@@ -95,24 +97,31 @@ def dial_step(args, split, epoch, (loader, len_loader), model, optimizer = None,
     targetInput, targetLabel, targetMeta = torch.Tensor(), torch.Tensor(), torch.Tensor()
     source_output, target_output = torch.Tensor(), torch.Tensor()
     source_loss_value, target_loss_value = 0, 0
-    
+    inputDomains = [meta[i,0] for i in range(input.shape[0])]
     source_input_list = [x for i,x in enumerate(input) if abs(meta[i,0]) == 1]
     if (len(source_input_list) > 0): 
           sourceInput = torch.stack(source_input_list)
           sourceLabel = torch.stack([x for i,x in enumerate(target) if abs(meta[i,0]) == 1])
           sourceMeta = torch.stack([x for i,x in enumerate(meta) if abs(meta[i,0]) == 1])
-          print "source input shape:" + str(sourceInput.size())
-          print "source label shape:" + str(sourceLabel.size())
-          print "source meta shape:" + str(sourceMeta.size())
+          sourceDomains = [sourceMeta[i,0] for i in range(sourceMeta.shape[0])]
+          print "source input shape: " + str(sourceInput.size())
+          print "source label shape: " + str(sourceLabel.size())
+          print "source meta shape: " + str(sourceMeta.size())
+          print "source domain: " + str(sourceDomains)
+          #if __DEBUG:
+                #print "************ DEBUG MDOE ON, SAVING IMAGES ***********"
+                
     
     target_input_list = [x for i,x in enumerate(input) if abs(meta[i,0]) > 1]
     if (len(target_input_list) > 0):
           targetInput = torch.stack(target_input_list)
           targetLabel = torch.stack([x for i,x in enumerate(target) if abs(meta[i,0]) > 1])
           targetMeta = torch.stack([x for i,x in enumerate(meta) if abs(meta[i,0]) > 1])
+          targetDomains = [targetMeta[i,0] for i in range(targetMeta.shape[0])]
           print "targe input shape:" + str(targetInput.size())
           print "target label shape:" + str(targetLabel.size())
           print "target meta shape:" + str(targetMeta.size())
+          print "target Domain: " + str(targetDomains)
     
     if (len(source_input_list) > 0):
           source_input_var = torch.autograd.Variable(sourceInput.cuda())
