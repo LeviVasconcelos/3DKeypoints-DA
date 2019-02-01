@@ -87,7 +87,7 @@ def dial_step(args, split, epoch, (loader, len_loader), model, optimizer = None,
   bar = Bar('{}'.format(ref.category), max=len_loader)
   
 #  for i, data in enumerate(loader):
-   for i, (input, target, meta) in enumerate(loader)
+  for i, (input, target, meta) in enumerate(loader):
     if split == 'train':
       optimizer.zero_grad()
     #(sourceInput, sourceLabel, sourceMeta), (targetInput, targetLabel, targetMeta) = data

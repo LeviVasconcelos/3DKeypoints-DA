@@ -105,7 +105,7 @@ def main():
           #train_loader = itertools.izip(trainSource_loader, itertools.cycle(trainTarget_loader))
           train_loader = fusion_loader
           #len_loader = max(len(trainSource_loader), len(trainTarget_loader))
-          len_loader = len(loader)
+          len_loader = len(train_loader)
           train_mpjpe, train_loss, train_unSuploss = dial_train(args, (train_loader, len_loader), model, optimizer, M, epoch, dial=DIAL, nViews=args.nViews)
     else:
           train_loader = fusion_loader
