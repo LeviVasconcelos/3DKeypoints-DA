@@ -8,6 +8,12 @@ import ref
 from progress.bar import Bar
 from layers.ShapeConsistencyCriterion import ShapeConsistencyCriterion
 
+'''
+input shape:torch.Size([64, 3, 224, 224])
+target shape:torch.Size([64, 10, 3])
+meta shape:torch.Size([64, 15])
+'''
+
 def step(args, split, epoch, loader, model, optimizer = None, M = None, f = None, tag = None, dial=False, nViews=ref.nViews):
   losses, mpjpe, mpjpe_r = AverageMeter(), AverageMeter(), AverageMeter()
   viewLosses, shapeLosses, supLosses = AverageMeter(), AverageMeter(), AverageMeter()
@@ -23,9 +29,9 @@ def step(args, split, epoch, loader, model, optimizer = None, M = None, f = None
     print 'dial activated (from train function)'
     model.eval()
   for i, (input, target, meta) in enumerate(loader):
-    print "input shape:" + input.size()
-    print "target shape:" + target.size()
-    print "meta shape:" + meta..size()
+    #print "input shape:" + input.size()
+    #print "target shape:" + target.size()
+    #print "meta shape:" + meta.size()
     
     input_var = torch.autograd.Variable(input.cuda())
     target_var = torch.autograd.Variable(target)
@@ -80,10 +86,19 @@ def dial_step(args, split, epoch, (loader, len_loader), model, optimizer = None,
     model.eval()
   bar = Bar('{}'.format(ref.category), max=len_loader)
   
-  for i, data in enumerate(loader):
+#  for i, data in enumerate(loader):
+   for i, (input, target, meta) in enumerate(loader)
     if split == 'train':
       optimizer.zero_grad()
-    (sourceInput, sourceLabel, sourceMeta), (targetInput, targetLabel, targetMeta) = data
+    #(sourceInput, sourceLabel, sourceMeta), (targetInput, targetLabel, targetMeta) = data
+    sourceInput = torch.stack([x for i,x in enumerate(input) if abs(meta[i,0]) == 1])
+    sourceLabel = torch.stack([x for i,x in enumerate(target) if abs(meta[i,0]) == 1])
+    sourceMeta = torch.stack([x for i,x in enumerate(meta) if abs(meta[i,0]) == 1])
+    
+    targetInput = torch.stack([x for i,x in enumerate(input) if abs(meta[i,0]) > 1])
+    targetLabel = torch.stack([x for i,x in enumerate(target) if abs(meta[i,0]) > 1])
+    targetMeta = torch.stack([x for i,x in enumerate(meta) if abs(meta[i,0]) > 1])
+    
     source_input_var = torch.autograd.Variable(sourceInput.cuda())
     source_label_var = torch.autograd.Variable(sourceLabel)
     model.set_domain(source=True)

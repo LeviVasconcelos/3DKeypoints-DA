@@ -102,8 +102,10 @@ def main():
   for epoch in range(1, args.epochs + 1):
     adjust_learning_rate(optimizer, epoch, args.dropLR)
     if args.shapeWeight > ref.eps and args.dialModel:
-          train_loader = itertools.izip(trainSource_loader, itertools.cycle(trainTarget_loader))
-          len_loader = max(len(trainSource_loader), len(trainTarget_loader))
+          #train_loader = itertools.izip(trainSource_loader, itertools.cycle(trainTarget_loader))
+          train_loader = fusion_loader
+          #len_loader = max(len(trainSource_loader), len(trainTarget_loader))
+          len_loader = len(loader)
           train_mpjpe, train_loss, train_unSuploss = dial_train(args, (train_loader, len_loader), model, optimizer, M, epoch, dial=DIAL, nViews=args.nViews)
     else:
           train_loader = fusion_loader
