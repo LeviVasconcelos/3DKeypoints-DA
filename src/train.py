@@ -133,7 +133,10 @@ def dial_step(args, split, epoch, (loader, len_loader), model, optimizer = None,
     
     input_ = torch.cat((sourceInput, targetInput), 0)
     target_ = torch.cat((sourceLabel, targetLabel), 0)
-    output_ = torch.cat((source_output, target_output), 0)
+    if (source_output.nelement() > 0 and target_output.nelement() > 0):
+          output_ = torch.cat((source_output, target_output), 0)
+    else:
+          output_ = source_output if source_output.nelement() > 0 else target_output
     meta_ = torch.cat((sourceMeta, targetMeta), 0)
     if split == 'test':
       for j in range(input_.numpy().shape[0]):
