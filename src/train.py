@@ -23,6 +23,9 @@ def step(args, split, epoch, loader, model, optimizer = None, M = None, f = None
     print 'dial activated (from train function)'
     model.eval()
   for i, (input, target, meta) in enumerate(loader):
+    print "input shape:" + input.size()
+    print "target shape:" + target.size()
+    print "meta shape:" + meta..size()
     
     input_var = torch.autograd.Variable(input.cuda())
     target_var = torch.autograd.Variable(target)
