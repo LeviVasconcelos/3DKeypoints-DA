@@ -14,7 +14,7 @@ target shape:torch.Size([64, 10, 3])
 meta shape:torch.Size([64, 15])
 '''
 
-__DEBUG = True
+__DEBUG = False
 
 def step(args, split, epoch, loader, model, optimizer = None, M = None, f = None, tag = None, dial=False, nViews=ref.nViews):
   losses, mpjpe, mpjpe_r = AverageMeter(), AverageMeter(), AverageMeter()
@@ -31,9 +31,10 @@ def step(args, split, epoch, loader, model, optimizer = None, M = None, f = None
     print 'dial activated (from train function)'
     model.eval()
   for i, (input, target, meta) in enumerate(loader):
-    #print "input shape:" + str(input.size())
-    #print "target shape:" + str(target.size())
-    #print "meta shape:" + str(meta.size())
+    if __DEBUG:
+      print "input shape:" + str(input.size())
+      print "target shape:" + str(target.size())
+      print "meta shape:" + str(meta.size())
     
     input_var = torch.autograd.Variable(input.cuda())
     target_var = torch.autograd.Variable(target)
@@ -104,13 +105,11 @@ def dial_step(args, split, epoch, (loader, len_loader), model, optimizer = None,
           sourceLabel = torch.stack([x for i,x in enumerate(target) if abs(meta[i,0]) == 1])
           sourceMeta = torch.stack([x for i,x in enumerate(meta) if abs(meta[i,0]) == 1])
           sourceDomains = [sourceMeta[i,0] for i in range(sourceMeta.shape[0])]
-          print "source input shape: " + str(sourceInput.size())
-          print "source label shape: " + str(sourceLabel.size())
-          print "source meta shape: " + str(sourceMeta.size())
-          print "source domain: " + str(sourceDomains)
-          #if __DEBUG:
-                #print "************ DEBUG MDOE ON, SAVING IMAGES ***********"
-                
+          if __DEBUG:
+            print "source input shape: " + str(sourceInput.size())
+            print "source label shape: " + str(sourceLabel.size())
+            print "source meta shape: " + str(sourceMeta.size())
+            print "source domain: " + str(sourceDomains)
     
     target_input_list = [x for i,x in enumerate(input) if abs(meta[i,0]) > 1]
     if (len(target_input_list) > 0):
@@ -118,10 +117,11 @@ def dial_step(args, split, epoch, (loader, len_loader), model, optimizer = None,
           targetLabel = torch.stack([x for i,x in enumerate(target) if abs(meta[i,0]) > 1])
           targetMeta = torch.stack([x for i,x in enumerate(meta) if abs(meta[i,0]) > 1])
           targetDomains = [targetMeta[i,0] for i in range(targetMeta.shape[0])]
-          print "targe input shape:" + str(targetInput.size())
-          print "target label shape:" + str(targetLabel.size())
-          print "target meta shape:" + str(targetMeta.size())
-          print "target Domain: " + str(targetDomains)
+          if __DEBUG:
+            print "targe input shape:" + str(targetInput.size())
+            print "target label shape:" + str(targetLabel.size())
+            print "target meta shape:" + str(targetMeta.size())
+            print "target Domain: " + str(targetDomains)
     
     if (len(source_input_list) > 0):
           source_input_var = torch.autograd.Variable(sourceInput.cuda())
