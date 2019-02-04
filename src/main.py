@@ -56,9 +56,9 @@ def main():
   valTarget_dataset = TargetDataset('test', ref.nValViews)
   
   valSource_loader = torch.utils.data.DataLoader(valSource_dataset, batch_size = 1, 
-                        shuffle=False, num_workers=1, pin_memory=True, collate_fn=collate_fn_cat)
+                        shuffle=False, num_workers=1, pin_memory=False, collate_fn=collate_fn_cat)
   valTarget_loader = torch.utils.data.DataLoader(valTarget_dataset, batch_size = 1, 
-                        shuffle=False, num_workers=1, pin_memory=True, collate_fn=collate_fn_cat)
+                        shuffle=False, num_workers=1, pin_memory=False, collate_fn=collate_fn_cat)
   
   if args.dialModel:
         print 'dial model on'
@@ -81,13 +81,13 @@ def main():
   
   fusion_loader = torch.utils.data.DataLoader(
       fusion_dataset, batch_size=args.batchSize, shuffle=not args.test,
-      num_workers=args.workers if not args.test else 1, pin_memory=True, collate_fn=collate_fn_cat)
+      num_workers=args.workers if not args.test else 1, pin_memory=False, collate_fn=collate_fn_cat)
   trainSource_loader = torch.utils.data.DataLoader(
       trainSource_dataset, batch_size=args.batchSize, shuffle=True,
-      num_workers=args.workers if not args.test else 1, pin_memory=True, collate_fn=collate_fn_cat)
+      num_workers=args.workers if not args.test else 1, pin_memory=False, collate_fn=collate_fn_cat)
   trainTarget_loader = torch.utils.data.DataLoader(
       trainTarget_dataset, batch_size=args.batchSize, shuffle=True,
-      num_workers=args.workers if not args.test else 1, pin_memory=True, collate_fn=collate_fn_cat)
+      num_workers=args.workers if not args.test else 1, pin_memory=False, collate_fn=collate_fn_cat)
 
   M = None
   if args.shapeWeight > ref.eps:
