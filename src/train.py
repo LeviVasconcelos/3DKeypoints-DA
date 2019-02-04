@@ -89,11 +89,9 @@ def dial_step(args, split, epoch, (loader, len_loader), model, optimizer = None,
     model.eval()
   bar = Bar('{}'.format(ref.category), max=len_loader)
   
-#  for i, data in enumerate(loader):
   for i, (input, target, meta) in enumerate(loader):
     if split == 'train':
       optimizer.zero_grad()
-    #(sourceInput, sourceLabel, sourceMeta), (targetInput, targetLabel, targetMeta) = data
     sourceInput, sourceLabel, sourceMeta = torch.Tensor(), torch.Tensor(), torch.Tensor()
     targetInput, targetLabel, targetMeta = torch.Tensor(), torch.Tensor(), torch.Tensor()
     source_output, target_output = torch.Tensor(), torch.Tensor()
