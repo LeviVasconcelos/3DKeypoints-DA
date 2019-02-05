@@ -9,9 +9,11 @@ model_names = sorted(name for name in models.__dict__
     if name.islower() and not name.startswith("__")
     and callable(models.__dict__[name]))
 
-dict_models = {'resnet18': dial.resnet18, 'resnet50': dial.resnet50}
+dial_dict_models = {'resnet18': dial.resnet18, 'resnet50': dial.resnet50}
+common_dict_models = {'resnet18': models.resnet18, 'resnet50': models.resnet50}
 
 def getModel(args):
+  dict_models = dial_dict_models if args.dialModel else common_dict_models
   # create model
   if args.pretrained:
     print("=> using pre-trained model '{}'".format(args.arch))
