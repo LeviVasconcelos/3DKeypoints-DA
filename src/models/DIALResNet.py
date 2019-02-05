@@ -180,7 +180,7 @@ def resnet18(fc_classes=1000, pretrained=False):
         pretrained (bool): If True, returns a model pre-trained on ImageNet
     """
     model = ResNet(BasicBlock, [2, 2, 2, 2], num_classes=fc_classes)
-    if pretrained::
+    if pretrained:
                 print 'loading from net'
                 model.load_pretrained(torch.utils.model_zoo.load_url(model_urls['resnet18']))
     return model
