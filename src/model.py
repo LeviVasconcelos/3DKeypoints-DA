@@ -9,13 +9,15 @@ model_names = sorted(name for name in models.__dict__
     if name.islower() and not name.startswith("__")
     and callable(models.__dict__[name]))
 
+dict_models = {'resnet18_dial': dial.resnet18, 'resnet50_dial': dial.resnet50,
+                    'resnet18': models.resnet18, 'resnet50': models.resnet50}
 
 def getModel(args):
   # create model
   if args.pretrained:
     print("=> using pre-trained model '{}'".format(args.arch))
     #model = models.__dict__[args.arch](pretrained=True)
-    model = dial.resnet18(pretrained='resnet18') ########### Common is to use resnet50
+    model = dict_models[args.arch](pretrained=True) ########### Common is to use resnet50
     if args.arch.startswith('resnet'):
       if '18' in args.arch:
         model.fc = nn.Linear(512 * 1, ref.J * 3)
@@ -37,7 +39,7 @@ def getModel(args):
   else:
     print("=> creating model '{}'".format(args.arch))
     #model = models.__dict__[args.arch](num_classes = ref.J * 3)
-    model = dial.resnet18(fc_classes = ref.J * 3)
+    model = dict_models[args.arch](num_classes = ref.J * 3)
 
   #model = torch.nn.DataParallel(model).cuda()
   model = model.cuda()

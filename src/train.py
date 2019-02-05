@@ -69,9 +69,10 @@ def step(args, split, epoch, loader, model, optimizer = None, M = None, f = None
     mpjpe_r.update(mpjpe_r_this, input.size(0))
     
     if split == 'train':
-      optimizer.zero_grad()
       loss.backward()
-      optimizer.step()
+      if i % 2 == 0:
+        optimizer.step()
+        optimizer.zero_grad()
     
     Bar.suffix = '{split:10}: [{0:2}][{1:3}/{2:3}] | Total: {total:} | ETA: {eta:} | Loss {loss.avg:.6f} | shapeLoss {shapeLoss.avg:.6f} | AE {mpjpe.avg:.6f} | ShapeDis {mpjpe_r.avg:.6f}'.format(epoch, i, len(loader), total=bar.elapsed_td, eta=bar.eta_td, loss=losses, mpjpe=mpjpe, split = split, shapeLoss = shapeLosses, mpjpe_r = mpjpe_r)
     bar.next()
@@ -90,8 +91,6 @@ def dial_step(args, split, epoch, (loader, len_loader), model, optimizer = None,
   bar = Bar('{}'.format(ref.category), max=len_loader)
   
   for i, (input, target, meta) in enumerate(loader):
-    if split == 'train':
-      optimizer.zero_grad()
     sourceInput, sourceLabel, sourceMeta = torch.Tensor(), torch.Tensor(), torch.Tensor()
     targetInput, targetLabel, targetMeta = torch.Tensor(), torch.Tensor(), torch.Tensor()
     source_output, target_output = torch.Tensor(), torch.Tensor()
@@ -130,7 +129,7 @@ def dial_step(args, split, epoch, (loader, len_loader), model, optimizer = None,
           if split == 'train':
                 source_loss.backward()
           source_loss_value = source_loss.data[0]
-          del source_loss
+          #del source_loss
     if (len(target_input_list) > 0):
           target_input_var = torch.autograd.Variable(targetInput.cuda())
           target_label_var = torch.autograd.Variable(targetLabel)
@@ -140,9 +139,10 @@ def dial_step(args, split, epoch, (loader, len_loader), model, optimizer = None,
           if split == 'train':
                 target_loss.backward()
           target_loss_value = target_loss.data[0]
-          del target_loss
-    if split == 'train':
-          optimizer.step()
+          #del target_loss
+    if split == 'train' and i % 2 == 0:
+            optimizer.step()
+            optimizer.zero_grad()
     
     input_ = torch.cat((sourceInput, targetInput), 0)
     target_ = torch.cat((sourceLabel, targetLabel), 0)
@@ -154,23 +154,6 @@ def dial_step(args, split, epoch, (loader, len_loader), model, optimizer = None,
           meta_ = torch.cat((sourceMeta, targetMeta), 0)
     else:
           meta_ = sourceMeta if sourceMeta.nelement() > 0 else targetMeta
-    if split == 'test':
-      for j in range(input_.numpy().shape[0]):
-        img = (input_.numpy()[j] * 255).transpose(1, 2, 0).astype(np.uint8)
-        cv2.imwrite('{}/img_{}/{}.png'.format(args.save_path, tag, i * input_.numpy().shape[0] + j), img)
-        gt = target_.cpu().numpy()[j]
-        pred = (output_.data).cpu().numpy()[j]
-        vis = meta_.cpu().numpy()[j][5:]
-        for t in range(ref.J):
-          f.write('{} {} {} '.format(pred[t * 3], pred[t * 3 + 1], pred[t * 3 + 2]))
-        f.write('\n')
-        for t in range(ref.J):
-          f.write('{} {} {} '.format(gt[t, 0], gt[t, 1], gt[t, 2]))
-        f.write('\n')
-        if args.saveVis:
-          for t in range(ref.J):
-            f.write('{} 0 0 '.format(vis[t]))
-          f.write('\n')
 
     mpjpe_this = accuracy(output_.data, target_, meta_)
     mpjpe_r_this = accuracy_dis(output_.data, target_, meta_)
