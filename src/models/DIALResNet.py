@@ -179,7 +179,7 @@ def resnet18(num_classes=1000, pretrained=False):
         fc_classes (int): The number of classes the model has to output. E.g. ImageNet12 has 1000 classes
         pretrained (bool): If True, returns a model pre-trained on ImageNet
     """
-    model = ResNet(BasicBlock, [2, 2, 2, 2], num_classes=fc_classes)
+    model = ResNet(BasicBlock, [2, 2, 2, 2], num_classes=num_classes)
     if pretrained:
                 print 'loading from net'
                 model.load_pretrained(torch.utils.model_zoo.load_url(model_urls['resnet18']))
@@ -191,7 +191,7 @@ def resnet50(num_classes=1000, pretrained=False):
         fc_classes (int): The number of classes the model has to output. E.g. ImageNet12 has 1000 classes
         pretrained (bool): If True, returns a model pre-trained on ImageNet
     """
-    model = ResNet(Bottleneck, [3, 4, 6, 3], num_classes=fc_classes)
+    model = ResNet(Bottleneck, [3, 4, 6, 3], num_classes=num_classes)
     if pretrained:
                 print 'loading from net'
                 model.load_pretrained(torch.utils.model_zoo.load_url(model_urls['resnet50']))
