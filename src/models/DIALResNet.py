@@ -173,38 +173,26 @@ class ResNet(nn.Module):
                   m.init_target_as_source()
 
 
-def resnet18(fc_classes=1000, pretrained=None):
+def resnet18(fc_classes=1000, pretrained=False):
     """Constructs a ResNet-18 model.
     Args:
         fc_classes (int): The number of classes the model has to output. E.g. ImageNet12 has 1000 classes
         pretrained (bool): If True, returns a model pre-trained on ImageNet
     """
     model = ResNet(BasicBlock, [2, 2, 2, 2], num_classes=fc_classes)
-    if pretrained:
-          if 'http' in model_urls[pretrained]:
+    if pretrained::
                 print 'loading from net'
-                model.load_pretrained(torch.utils.model_zoo.load_url(model_urls[pretrained]))
-          else:
-                print 'loading from file'
-                model.load_pretrained(torch.load(model_urls[pretrained])['state_dict'])
-                # DEBUG
-                assert check_equals_bn(model.state_dict(), torch.load(model_urls[pretrained])['state_dict'])
+                model.load_pretrained(torch.utils.model_zoo.load_url(model_urls['resnet18']))
     return model
 
-def resnet50(fc_classes=1000, pretrained=None):
-    """Constructs a ResNet-18 model.
+def resnet50(fc_classes=1000, pretrained=False):
+    """Constructs a ResNet-50 model.
     Args:
         fc_classes (int): The number of classes the model has to output. E.g. ImageNet12 has 1000 classes
         pretrained (bool): If True, returns a model pre-trained on ImageNet
     """
     model = ResNet(Bottleneck, [3, 4, 6, 3], num_classes=fc_classes)
     if pretrained:
-          if 'http' in model_urls[pretrained]:
                 print 'loading from net'
-                model.load_pretrained(torch.utils.model_zoo.load_url(model_urls[pretrained]))
-          else:
-                print 'loading from file'
-                model.load_pretrained(torch.load(model_urls[pretrained])['state_dict'])
-                # DEBUG
-                assert check_equals_bn(model.state_dict(), torch.load(model_urls[pretrained])['state_dict'])
+                model.load_pretrained(torch.utils.model_zoo.load_url(model_urls['resnet50']))
     return model
