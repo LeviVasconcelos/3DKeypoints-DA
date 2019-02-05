@@ -173,7 +173,7 @@ class ResNet(nn.Module):
                   m.init_target_as_source()
 
 
-def resnet18(fc_classes=1000, pretrained=False):
+def resnet18(num_classes=1000, pretrained=False):
     """Constructs a ResNet-18 model.
     Args:
         fc_classes (int): The number of classes the model has to output. E.g. ImageNet12 has 1000 classes
@@ -185,7 +185,7 @@ def resnet18(fc_classes=1000, pretrained=False):
                 model.load_pretrained(torch.utils.model_zoo.load_url(model_urls['resnet18']))
     return model
 
-def resnet50(fc_classes=1000, pretrained=False):
+def resnet50(num_classes=1000, pretrained=False):
     """Constructs a ResNet-50 model.
     Args:
         fc_classes (int): The number of classes the model has to output. E.g. ImageNet12 has 1000 classes
