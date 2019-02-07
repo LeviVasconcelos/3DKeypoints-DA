@@ -17,8 +17,8 @@ def forward_dataset(model, loader, epoch, max_epoch):
             label_var = torch.autograd.Variable(label)
             output = model(data_var).detach()
             loss = ShapeConsistencyCriterion(nViews, supWeight = 1, unSupWeight = 0, M = None)(output.cpu(), label_var, torch.autograd.Variable(meta))
-            loss_mean.update(loss, data.size(0))
-            bar.suffix = '[%d / %d]Loss: %.6f' % (epoch, max_epoch, loss_mean.avg)
+            loss_mean.update(loss.data[0], data.size(0))
+            bar.suffix = '[%d / %d] Loss: %.6f' % (epoch, max_epoch, loss_mean.avg)
             bar.next()
       bar.finish()
       return loss_mean
