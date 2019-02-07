@@ -22,6 +22,7 @@ from train import train, validate, test, dial_train
 from optim_latent import initLatent, stepLatent, getY
 from model import getModel
 from utils.utils import collate_fn_cat
+from dial_train import train_statistics
 
 from datasets.chairs_modelnet import ChairsModelNet as SourceDataset
 args = opts().parse()
@@ -88,6 +89,16 @@ def main():
   trainTarget_loader = torch.utils.data.DataLoader(
       trainTarget_dataset, batch_size=args.batchSize, shuffle=True,
       num_workers=args.workers if not args.test else 1, pin_memory=False, collate_fn=collate_fn_cat)
+  
+  if args.dial_fit:
+        loss_history = train_statistics(model, trainTarget_loader, args.epochs)
+        torch.save({'epochs': args.epochs, 
+                    'arch': args.arch, 
+                    'state_dict': model.state_dict(), }, 
+        args.save_path + 'dial_fitted{}.pth.tar'.format(epochs))
+        np.save(args.save_path + 'dial_fitted{}.loss.txt'.format(epochs), 
+                np.asarray([x.avg for x in loss_history]))
+        return
 
   M = None
   if args.shapeWeight > ref.eps:
