@@ -13,7 +13,8 @@ def forward_dataset(model, loader, epoch, max_epoch):
       loss_mean = AverageMeter()
       bar = Bar('DIAL forward:', max=len(loader))
       for i, (data, label, meta) in enumerate(loader):
-            output = model(data).detach()
+            data_var = torch.autograd.Variable(data.cuda())
+            output = model(data_var).detach()
             loss = ShapeConsistencyCriterion(nViews, supWeight = 1, unSupWeight = 0, M = None)(output.cpu(), label, torch.autograd.Variable(meta))
             loss_mean.update(loss, data.size(0))
             bar.suffix('[%d / %d]Loss: %.6f' % (epoch, max_epoch, loss_mean.avg))
@@ -23,11 +24,9 @@ def forward_dataset(model, loader, epoch, max_epoch):
 
 def train_statistics(dial_model, dataset_loader, epochs, source_domain=False):
       dial_model.eval()
-      dial_model.set_domain(Source=source_domain)
+      dial_model.set_domain(source=source_domain)
       loss_history = []
       for e in range(epochs):
            loss = forward_dataset(dial_model, dataset_loader, e, epochs)
            loss_history.append(loss)
-     return loss_history
-
-
+      return loss_history
