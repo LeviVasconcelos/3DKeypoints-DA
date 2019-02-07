@@ -76,6 +76,8 @@ def main():
     return
   if args.shapeWeight > ref.eps and args.dialModel:
         model.init_target_weights()
+  if args.dial_copy_source:
+        model.init_target_weights()
   fusion_dataset = Fusion(SourceDataset, TargetDataset, nViews = args.nViews, targetRatio = args.targetRatio, totalTargetIm = args.totalTargetIm)
   trainTarget_dataset = fusion_dataset.targetDataset
   trainSource_dataset = fusion_dataset.sourceDataset

@@ -42,6 +42,8 @@ class opts():
     self.parser.add_argument('-mu', default=0.1, type = float, help='mu')
     self.parser.add_argument('-approx_dial', action = 'store_true', help='train with dial approximation')
     self.parser.add_argument('-dial_fit', action = 'store_true', help='computes dial statistics')
+    self.parser.add_argument('-dial_copy_source', action = 'store_true', help='copy weights from source to target bn')
+    
     
     
   def parse(self):
