@@ -13,16 +13,16 @@ def forward_dataset(model, loader, epoch, max_epoch):
       loss_mean = AverageMeter()
       bar = Bar('DIAL forward:', max=len(loader))
       for i, (data, label, meta) in enumerate(loader):
-            print "data size: " + str(data.size())
-            print "label size: " + str(label.size())
-            print "meta size: " + str(meta.size())
+            #print "data size: " + str(data.size())
+            #print "label size: " + str(label.size())
+            #print "meta size: " + str(meta.size())
             for i,_ in enumerate(meta):
                   meta[i,0] *= -1
             data_var = torch.autograd.Variable(data.cuda())
             label_var = torch.autograd.Variable(label)
             output = model(data_var).detach()
             loss = ShapeConsistencyCriterion(nViews, supWeight = 1, unSupWeight = 0, M = None)(output.cpu(), label_var, torch.autograd.Variable(meta))
-            print "data: " + str(loss.data[0])
+            #print "loss: " + str(loss.data[0])
             loss_mean.update(loss.data[0], data.size(0))
             bar.suffix = '[%d / %d] Loss: %.6f' % (epoch, max_epoch, loss_mean.avg)
             bar.next()
