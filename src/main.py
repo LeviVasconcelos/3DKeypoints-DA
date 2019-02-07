@@ -97,8 +97,8 @@ def main():
         torch.save({'epochs': args.epochs, 
                     'arch': args.arch, 
                     'state_dict': model.state_dict(), }, 
-        args.save_path + 'dial_fitted{}.pth.tar'.format(args.epochs))
-        np.save(args.save_path + 'dial_fitted{}.loss.txt'.format(args.epochs), 
+        args.save_path + '/dial_fitted{}.pth.tar'.format(args.epochs))
+        np.save(args.save_path + '/dial_fitted{}.loss.txt'.format(args.epochs), 
                 np.asarray([x.avg for x in loss_history]))
         return
 
