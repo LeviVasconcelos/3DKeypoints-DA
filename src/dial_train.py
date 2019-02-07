@@ -16,6 +16,8 @@ def forward_dataset(model, loader, epoch, max_epoch):
             print "data size: " + str(data.size())
             print "label size: " + str(label.size())
             print "meta size: " + str(meta.size())
+            for i,_ in enumerate(meta):
+                  meta[i,0] *= -1
             data_var = torch.autograd.Variable(data.cuda())
             label_var = torch.autograd.Variable(label)
             output = model(data_var).detach()
