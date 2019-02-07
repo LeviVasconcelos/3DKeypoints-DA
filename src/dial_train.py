@@ -9,7 +9,7 @@ import ref
 
 def forward_dataset(model, loader, epoch, max_epoch):
       nViews = ref.nViews
-      model.eval()
+      model.train()
       loss_mean = AverageMeter()
       bar = Bar('DIAL forward:', max=len(loader))
       for i, (data, label, meta) in enumerate(loader):
