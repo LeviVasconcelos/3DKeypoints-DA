@@ -26,4 +26,4 @@ RedwoodRGB_version = ''
 category = 'Chair'
 tag = ''
 exp_name = '{}{}'.format(category, tag)
-nViews=8
+nViews=1

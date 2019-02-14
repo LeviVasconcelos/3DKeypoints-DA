@@ -18,7 +18,7 @@ class opts():
     self.parser.add_argument('-epochs', default=30, type=int, help='number of total epochs to run')
     self.parser.add_argument('-dropLR', default=20, type=int, metavar='N', help='# total epochs to drop LR')
     self.parser.add_argument('-batchSize', default=64, type=int, help='mini-batch size (default: 64)')
-    self.parser.add_argument('-LR', default=0.1, type=float, help='initial learning rate')
+    self.parser.add_argument('-LR', default=0.01, type=float, help='initial learning rate')
     self.parser.add_argument('-momentum', default=0.9, type=float, help='momentum')
     self.parser.add_argument('-weight_decay', default=1e-4, type=float, help='weight decay (default: 1e-4)')
     self.parser.add_argument('-loadModel', default='', type=str, help='path to loadmodel (default: none)')
@@ -43,6 +43,8 @@ class opts():
     self.parser.add_argument('-approx_dial', action = 'store_true', help='train with dial approximation')
     self.parser.add_argument('-dial_fit', action = 'store_true', help='computes dial statistics')
     self.parser.add_argument('-dial_copy_source', action = 'store_true', help='copy weights from source to target bn')
+
+    self.parser.add_argument('-adda', action = 'store_true', help='performs adda stage')
     
     
     

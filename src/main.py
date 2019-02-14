@@ -23,6 +23,7 @@ from optim_latent import initLatent, stepLatent, getY
 from model import getModel
 from utils.utils import collate_fn_cat
 from dial_train import train_statistics
+from adda_train import train_discriminator
 
 from datasets.chairs_modelnet import ChairsModelNet as SourceDataset
 args = opts().parse()
@@ -91,7 +92,16 @@ def main():
   trainTarget_loader = torch.utils.data.DataLoader(
       trainTarget_dataset, batch_size=args.batchSize, shuffle=True,
       num_workers=args.workers if not args.test else 1, pin_memory=False, collate_fn=collate_fn_cat)
-  
+
+
+  if args.adda:
+        tgt_model = train_discriminator(model, trainSource_loader, trainTarget_loader, args.epochs)
+        torch.save({'epochs': args.epochs, 
+                    'arch': args.arch, 
+                    'state_dict': tgt_model.state_dict(), }, 
+        args.save_path + '/adda_fitted{}.pth.tar'.format(args.epochs))
+        return
+
   if args.dial_fit:
         loss_history = train_statistics(model, trainTarget_loader, args.epochs)
         torch.save({'epochs': args.epochs, 

@@ -5,12 +5,14 @@ import torch.nn as nn
 import os
 import torchvision.models as models
 import models.DIALResNet as dial
+import models.ADDAResNet as adda
+
 model_names = sorted(name for name in models.__dict__
     if name.islower() and not name.startswith("__")
     and callable(models.__dict__[name]))
 
 dict_models = {'resnet18_dial': dial.resnet18, 'resnet50_dial': dial.resnet50,
-                    'resnet18': models.resnet18, 'resnet50': models.resnet50}
+                    'resnet18': models.resnet18, 'resnet50': models.resnet50, 'resnet50_adda': adda.resnet50}
 
 def getModel(args):
   # create model
@@ -41,16 +43,19 @@ def getModel(args):
     #model = models.__dict__[args.arch](num_classes = ref.J * 3)
     model = dict_models[args.arch](num_classes = ref.J * 3)
 
+  
   #model = torch.nn.DataParallel(model).cuda()
-  model = model.cuda()
+  
         
   if args.loadModel:
+    if 'pth' not in args.loadModel:
+	model = torch.nn.DataParallel(model)
     if os.path.isfile(args.loadModel):
       print("=> loading model '{}'".format(args.loadModel))
       checkpoint = torch.load(args.loadModel)
       model.load_state_dict(checkpoint['state_dict'])
     else:
       raise Exception("=> no model found at '{}'".format(args.loadModel))
-  
+  model = model.cuda()
   return model
 
