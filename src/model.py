@@ -43,13 +43,12 @@ def getModel(args):
     #model = models.__dict__[args.arch](num_classes = ref.J * 3)
     model = dict_models[args.arch](num_classes = ref.J * 3)
 
-  
-  #model = torch.nn.DataParallel(model).cuda()
-  
+  model = torch.nn.DataParallel(model).cuda()
+    
         
   if args.loadModel:
-    if 'pth' not in args.loadModel:
-	model = torch.nn.DataParallel(model)
+    #if 'pth' not in args.loadModel:
+	#model = torch.nn.DataParallel(model)
     if os.path.isfile(args.loadModel):
       print("=> loading model '{}'".format(args.loadModel))
       checkpoint = torch.load(args.loadModel)

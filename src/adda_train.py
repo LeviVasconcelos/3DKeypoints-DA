@@ -34,7 +34,7 @@ def forward_dataset(model, old_model, loader, optimizer, epoch, max_epoch, ):
       return loss_mean
 
 
-def train_tgt(src_encoder, tgt_encoder, critic, src_data_loader, tgt_data_loader, epochs, th=0.7):
+def train_tgt(src_encoder, tgt_encoder, critic, src_data_loader, tgt_data_loader, epochs, th=0.8):
 
     """Train encoder for target domain."""
     ####################
@@ -49,12 +49,12 @@ def train_tgt(src_encoder, tgt_encoder, critic, src_data_loader, tgt_data_loader
     criterion = nn.CrossEntropyLoss()
 
     params_to_optim = list(filter(lambda p: p.requires_grad, tgt_encoder.parameters()))
-    optimizer_tgt = torch.optim.SGD(params_to_optim, args.LR,
+    optimizer_tgt = torch.optim.SGD(params_to_optim, args.LR*0.1,
                               momentum=args.momentum,
                               weight_decay=args.weight_decay)
 
     params_to_optim = list(filter(lambda p: p.requires_grad, critic.parameters())) 
-    optimizer_critic = torch.optim.SGD(params_to_optim, args.LR/2.,
+    optimizer_critic = torch.optim.SGD(params_to_optim, args.LR*0.1,
                               momentum=args.momentum,
                               weight_decay=args.weight_decay)
 
@@ -111,7 +111,7 @@ def train_tgt(src_encoder, tgt_encoder, critic, src_data_loader, tgt_data_loader
             acc = (pred_cls == label_concat).float().mean()
 	    if acc.data[0]>th and update_discriminator:
 		update_discriminator=False
-	    elif acc.data[0]<(1-th):
+	    elif acc.data[0]<0.3:
 		update_discriminator=True
 
 	    
