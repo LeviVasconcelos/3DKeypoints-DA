@@ -24,6 +24,7 @@ from model import getModel
 from utils.utils import collate_fn_cat
 from dial_train import train_statistics
 from adda_train import train_discriminator
+from extract_priors import extract
 
 from datasets.chairs_modelnet import ChairsModelNet as SourceDataset
 args = opts().parse()
@@ -64,6 +65,16 @@ def main():
   
   if args.dialModel:
         print 'dial model on'
+
+  if args.extractProps:
+    #sourceDist, sourceProps = extract(args, valSource_loader, model)
+    targetDist, targetProps = extract(args, valTarget_loader, model)
+    #np.save(args.propsFile+'-source-distances.npy', sourceDist)	
+    #np.save(args.propsFile+'-source-props.npy', sourceProps)	
+    np.save(args.propsFile+'-distances.npy', targetDist)	
+    np.save(args.propsFile+'-props.npy', targetProps)	
+    return
+
   if args.test:
     f = {}
     for split in splits:

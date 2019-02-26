@@ -1,0 +1,45 @@
+---------- PRINTING CONFIDENT PROPS ----------
+Props from edge [1,7] to edge [0,6] has mean 1.005339 and std at 3.4096658
+Props from edge [1,9] to edge [0,8] has mean 1.0075074 and std at 4.156932
+Props from edge [0,6] to edge [1,7] has mean 0.9960618 and std at 4.178731
+Props from edge [0,8] to edge [1,9] has mean 0.9943217 and std at 4.32023
+Props from edge [1,3] to edge [0,2] has mean 1.0114653 and std at 5.1580486
+Props from edge [4,6] to edge [5,7] has mean 0.9950547 and std at 5.286464
+Props from edge [5,7] to edge [4,6] has mean 1.0077828 and std at 5.387151
+Props from edge [0,2] to edge [1,3] has mean 0.99138725 and std at 5.4860177
+Props from edge [4,8] to edge [5,9] has mean 0.98761123 and std at 6.5473514
+Props from edge [1,8] to edge [0,8] has mean 1.0904758 and std at 6.7694044
+Props from edge [5,9] to edge [4,8] has mean 1.0168713 and std at 6.8461933
+Props from edge [0,8] to edge [1,8] has mean 0.9213743 and std at 7.0414453
+Props from edge [1,9] to edge [0,9] has mean 0.9147827 and std at 7.091336
+Props from edge [0,8] to edge [0,9] has mean 0.9089233 and std at 7.3342004
+Props from edge [0,9] to edge [1,9] has mean 1.0988245 and std at 7.4802747
+Props from edge [0,9] to edge [0,8] has mean 1.106244 and std at 7.5258293
+Props from edge [3,5] to edge [2,4] has mean 0.9957478 and std at 7.8734026
+Props from edge [2,8] to edge [3,9] has mean 0.9996652 and std at 8.025373
+Props from edge [3,7] to edge [2,6] has mean 1.0051004 and std at 8.1250925
+Props from edge [1,8] to edge [1,9] has mean 1.0844052 and std at 8.139527
+
+
+
+---------- PRINTING UNCONFIDENT PROPS ----------
+Props from edge [2,6] to edge [8,9] has mean 1.4102767 and std at 130.14803
+Props from edge [2,6] to edge [1,4] has mean 0.8138698 and std at 130.28375
+Props from edge [0,7] to edge [0,1] has mean 3.1462486 and std at 130.54051
+Props from edge [5,9] to edge [8,9] has mean 1.3260998 and std at 131.60681
+Props from edge [3,7] to edge [8,9] has mean 1.4178811 and std at 132.14354
+Props from edge [3,7] to edge [1,4] has mean 0.8158791 and std at 132.18468
+Props from edge [4,9] to edge [0,1] has mean 1.994322 and std at 139.28133
+Props from edge [5,8] to edge [0,1] has mean 1.9232444 and std at 140.21921
+Props from edge [4,6] to edge [0,1] has mean 2.1777587 and std at 140.26474
+Props from edge [0,6] to edge [0,1] has mean 2.8857758 and std at 140.32341
+Props from edge [3,6] to edge [0,1] has mean 2.001473 and std at 141.91309
+Props from edge [2,8] to edge [0,1] has mean 1.8493755 and std at 142.52328
+Props from edge [5,7] to edge [0,1] has mean 2.1872077 and std at 142.57317
+Props from edge [1,7] to edge [0,1] has mean 2.9131188 and std at 142.83847
+Props from edge [3,9] to edge [0,1] has mean 1.8697485 and std at 142.98889
+Props from edge [2,7] to edge [0,1] has mean 2.0343087 and std at 144.21812
+Props from edge [2,6] to edge [0,1] has mean 1.6463647 and std at 176.39865
+Props from edge [3,7] to edge [0,1] has mean 1.658716 and std at 179.3544
+Props from edge [5,9] to edge [0,1] has mean 1.55462 and std at 180.83192
+Props from edge [4,8] to edge [0,1] has mean 1.5277231 and std at 180.83455

@@ -26,6 +26,10 @@ class opts():
     self.parser.add_argument('-shapeNetFullTest', action='store_true', help='shapeNetFullTest')
     self.parser.add_argument('-dialModel', action='store_true', help='informs whether the model has dial layers')
 
+    self.parser.add_argument('-extractProps', action='store_true', help='informs whether to store model props')    
+    self.parser.add_argument('-propsFile', default='prop', type=str, 
+                               help='File where to store proportions and distances')
+
     self.parser.add_argument('-intervalUpdateM', default=5, type=int, help='update M')
     self.parser.add_argument('-saveVis', action = 'store_true', help='')
     

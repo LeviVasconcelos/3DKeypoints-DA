@@ -1,6 +1,7 @@
 import torch
 from progress.bar import Bar
-
+import torch.multiprocessing
+torch.multiprocessing.set_sharing_strategy('file_system')
 from optim_latent import initLatent
 from datasets.Fusion import unpack_splitted
 from layers.ShapeConsistencyCriterion import ShapeConsistencyCriterion
