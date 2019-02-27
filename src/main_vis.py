@@ -57,7 +57,7 @@ def main():
 
   # Init priors:
   Mean,Std = get_priors_from_file(args.propsFile)
-  prior_loss = PriorConsistencyCriterion(Mean,Std,logger=logger)
+  prior_loss = PriorConsistencyCriterion(Mean,Std,norm = args.lossNorm, std_weight = args.weightedNorm)
 
   # Init loaders
   valSource_dataset = SourceDataset('test', ref.nValViews)

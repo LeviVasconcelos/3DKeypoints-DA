@@ -21,6 +21,7 @@ def step(args, split, epoch, loader, model, loss, logger=None, optimizer = None,
     model.train()
   else:
     model.eval()
+
   idx_0 = len(loader)*epoch
 
   for i, (input, target, meta) in enumerate(loader):
@@ -30,7 +31,7 @@ def step(args, split, epoch, loader, model, loss, logger=None, optimizer = None,
     
     cr_loss = loss(output)
 
-    cr_regr_loss = ((output - target_var.view(target_var.shape[0],-1)) ** 2).sum() / ref.J / 3
+    cr_regr_loss = ((output - target_var.view(target_var.shape[0],-1)) ** 2).sum() / ref.J / 3 / input.shape[0]
 
 
     current_acc = accuracy(output.data, target, meta)

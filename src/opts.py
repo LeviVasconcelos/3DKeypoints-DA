@@ -14,11 +14,15 @@ class opts():
     self.parser.add_argument('-test', action = 'store_true', help='test')
     self.parser.add_argument('-extractProps', action = 'store_true', help='test')
 
+    self.parser.add_argument('-weightedNorm', action = 'store_true', help='whether to use the std while computing the loss')
+    self.parser.add_argument('-lossNorm', default='l2', type=str, 
+                               help='l2 | l1 | frobenius')
+
     self.parser.add_argument('-DEBUG', default = 0, type = int, help='debug level')
     self.parser.add_argument('-arch', default='resnet50')
     self.parser.add_argument('-workers', default=4, type=int, metavar='N', help='#data loading workers (default: 4)')
-    self.parser.add_argument('-epochs', default=240, type=int, help='number of total epochs to run')
-    self.parser.add_argument('-dropLR', default=160, type=int, metavar='N', help='# total epochs to drop LR')
+    self.parser.add_argument('-epochs', default=150, type=int, help='number of total epochs to run')
+    self.parser.add_argument('-dropLR', default=100, type=int, metavar='N', help='# total epochs to drop LR')
     self.parser.add_argument('-batchSize', default=64, type=int, help='mini-batch size (default: 64)')
     self.parser.add_argument('-LR', default=0.001, type=float, help='initial learning rate')
     self.parser.add_argument('-momentum', default=0.9, type=float, help='momentum')

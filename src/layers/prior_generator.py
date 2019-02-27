@@ -25,6 +25,17 @@ def compute_distances(x, eps=10**(-6)):
     dists=dists.pow(0.5)
     return  dists#/dists.sum() # B x K x K
 
+
+def replicate_mask(x): # x must be of dimension BxK
+    # Computes the outer product of a vector by itself
+    x_left = x.unsqueeze(-1) # B x K x 1
+    x_right = x.unsqueeze(1) # B x 1 x K
+
+    xxT = torch.bmm(x_left,x_right) # B x K x K
+
+    return  xxT
+
+
 def compute_proportions(x,eps=10**(-6)): # x has dimensions B x K x K
     x = x.view(x.shape[0],-1) # B x K^2
     numerator = x.unsqueeze(2) # B x K^2 x 1
