@@ -9,17 +9,19 @@ import torch.nn as nn
 # where 10 is the number of keypoints 
 
 def compute_distances(x, eps=10**(-6)):
-    x=x.unsqueeze(0)	
+    if len(x.shape)==2:
+    	x=x.unsqueeze(0)
+	
     # Computes the squared norm of X
-    x_squared=x.norm(p=2,dim=2).pow(2)
+    x_squared=x.norm(p=2,dim=2).pow(2) # B x K
 
+    
     x_squared_left = x_squared.unsqueeze(-1) # B x K x 1
     x_squared_right = x_squared.unsqueeze(1) # B x 1 x K
 
     x_transposed = x.permute(0,2,1) # B x K x D
     xxT = torch.bmm(x,x_transposed)
-
-    dists = x_squared_left + x_squared_right - 2*xxT+eps
+    dists = x_squared_left + x_squared_right - 2*xxT + eps
     dists=dists.pow(0.5)
     return  dists#/dists.sum() # B x K x K
 
@@ -27,6 +29,14 @@ def compute_proportions(x,eps=10**(-6)): # x has dimensions B x K x K
     x = x.view(x.shape[0],-1) # B x K^2
     numerator = x.unsqueeze(2) # B x K^2 x 1
     denominator = 1./(x.unsqueeze(1)+eps) # B x 1 x K^2
+    mm = torch.bmm(numerator,denominator) # B x K^2 x K^2
+    return mm
+
+def compute_masked_proportions(x,mask,eps=10**(-6)): # x has dimensions B x K x K
+    x = x.view(x.shape[0],-1) # B x K^2
+    numerator = x.unsqueeze(2)*mask # B x K^2 x 1
+    denominator = 1./(x.unsqueeze(1)+eps) # B x 1 x K^2
+    denominator = denominator + 10*mask
     mm = torch.bmm(numerator,denominator) # B x K^2 x K^2
     return mm
 

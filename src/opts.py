@@ -12,23 +12,25 @@ class opts():
     self.parser.add_argument('-targetDataset', default='Redwood', type=str, 
                                help='Redwood | ShapeNet | RedwoodRGB | 3DCNN')
     self.parser.add_argument('-test', action = 'store_true', help='test')
+    self.parser.add_argument('-extractProps', action = 'store_true', help='test')
+
     self.parser.add_argument('-DEBUG', default = 0, type = int, help='debug level')
     self.parser.add_argument('-arch', default='resnet50')
     self.parser.add_argument('-workers', default=4, type=int, metavar='N', help='#data loading workers (default: 4)')
-    self.parser.add_argument('-epochs', default=30, type=int, help='number of total epochs to run')
-    self.parser.add_argument('-dropLR', default=20, type=int, metavar='N', help='# total epochs to drop LR')
+    self.parser.add_argument('-epochs', default=240, type=int, help='number of total epochs to run')
+    self.parser.add_argument('-dropLR', default=160, type=int, metavar='N', help='# total epochs to drop LR')
     self.parser.add_argument('-batchSize', default=64, type=int, help='mini-batch size (default: 64)')
-    self.parser.add_argument('-LR', default=0.01, type=float, help='initial learning rate')
+    self.parser.add_argument('-LR', default=0.001, type=float, help='initial learning rate')
     self.parser.add_argument('-momentum', default=0.9, type=float, help='momentum')
     self.parser.add_argument('-weight_decay', default=1e-4, type=float, help='weight decay (default: 1e-4)')
     self.parser.add_argument('-loadModel', default='', type=str, help='path to loadmodel (default: none)')
+    self.parser.add_argument('-logDir', default='', type=str, help='where to store the tensorboard event catcher')
+
+    self.parser.add_argument('-propsFile', default='', type=str, help='where to store props')
+
     self.parser.add_argument('-pretrained', action='store_true', help='use pre-trained model')
     self.parser.add_argument('-shapeNetFullTest', action='store_true', help='shapeNetFullTest')
     self.parser.add_argument('-dialModel', action='store_true', help='informs whether the model has dial layers')
-
-    self.parser.add_argument('-extractProps', action='store_true', help='informs whether to store model props')    
-    self.parser.add_argument('-propsFile', default='prop', type=str, 
-                               help='File where to store proportions and distances')
 
     self.parser.add_argument('-intervalUpdateM', default=5, type=int, help='update M')
     self.parser.add_argument('-saveVis', action = 'store_true', help='')
