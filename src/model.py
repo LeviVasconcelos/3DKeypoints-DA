@@ -43,7 +43,7 @@ def getModel(args):
     #model = models.__dict__[args.arch](num_classes = ref.J * 3)
     model = dict_models[args.arch](num_classes = ref.J * 3)
 
-  model = torch.nn.DataParallel(model).cuda()
+  model = model.cuda()
     
         
   if args.loadModel:
@@ -52,9 +52,21 @@ def getModel(args):
     if os.path.isfile(args.loadModel):
       print("=> loading model '{}'".format(args.loadModel))
       checkpoint = torch.load(args.loadModel)
-      model.load_state_dict(checkpoint['state_dict'])
+      model.load_state_dict(load_data_parallel(checkpoint['state_dict']))
     else:
       raise Exception("=> no model found at '{}'".format(args.loadModel))
-  model = model.cuda()
   return model
 
+
+
+def load_data_parallel(x):
+	# original saved file with DataParallel
+	state_dict = x
+	# create new OrderedDict that does not contain `module.`
+	from collections import OrderedDict
+	new_state_dict = OrderedDict()
+	for k, v in state_dict.items():
+	    name = k[7:] # remove `module.`
+	    new_state_dict[name] = v
+	# load params
+	return new_state_dict

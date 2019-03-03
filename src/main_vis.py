@@ -9,7 +9,7 @@ import torch.optim
 import torch.utils.data
 import torchvision.datasets as datasets
 
-from layers.PriorConsistencyCriterion import PriorConsistencyCriterion, get_priors_from_file
+from layers.PriorConsistencyCriterion import PriorConsistencyCriterion,DistanceConsistencyCriterion, get_priors_from_file
 
 from tensorboardX import SummaryWriter
 
@@ -56,8 +56,12 @@ def main():
 
 
   # Init priors:
-  Mean,Std = get_priors_from_file(args.propsFile)
-  prior_loss = PriorConsistencyCriterion(Mean,Std,norm = args.lossNorm, std_weight = args.weightedNorm)
+  if 'distances' in args.propsFile:
+	  Mean,Std = get_priors_from_file(args.propsFile)
+	  prior_loss = DistanceConsistencyCriterion(Mean,Std,norm = args.lossNorm, std_weight = args.weightedNorm, eps=args.eps)
+  else:
+	  Mean,Std = get_priors_from_file(args.propsFile)
+	  prior_loss = PriorConsistencyCriterion(Mean,Std,norm = args.lossNorm, std_weight = args.weightedNorm, eps=args.eps)
 
   # Init loaders
   valSource_dataset = SourceDataset('test', ref.nValViews)
@@ -121,7 +125,7 @@ def main():
         'optimizer' : optimizer.state_dict(),
       }, args.save_path + '/checkpoint_{}.pth.tar'.format(epoch))
     
-    print('Epoch endend')
+  print('Training endend')
   logger.close()
 
 def adjust_learning_rate(optimizer, epoch, dropLR):

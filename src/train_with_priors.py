@@ -29,7 +29,7 @@ def step(args, split, epoch, loader, model, loss, logger=None, optimizer = None,
     target_var = torch.autograd.Variable(target.cuda())
     output = model(input_var)
     
-    cr_loss = loss(output)
+    cr_loss = loss(output, logger, idx_0+i, plot=i==0)
 
     cr_regr_loss = ((output - target_var.view(target_var.shape[0],-1)) ** 2).sum() / ref.J / 3 / input.shape[0]
 
