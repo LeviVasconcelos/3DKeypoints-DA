@@ -52,7 +52,10 @@ def getModel(args):
     if os.path.isfile(args.loadModel):
       print("=> loading model '{}'".format(args.loadModel))
       checkpoint = torch.load(args.loadModel)
-      model.load_state_dict(load_data_parallel(checkpoint['state_dict']))
+      if 'pth' not in args.loadModel:
+      	model.load_state_dict(load_data_parallel(checkpoint['state_dict']))
+      else:
+      	model.load_state_dict(checkpoint['state_dict'])
     else:
       raise Exception("=> no model found at '{}'".format(args.loadModel))
   return model

@@ -19,10 +19,11 @@ class opts():
                                help='l2 | l1 | frobenius')
 
     self.parser.add_argument('-DEBUG', default = 0, type = int, help='debug level')
+    self.parser.add_argument('-runs', default = 5, type = int, help='number of runs')
     self.parser.add_argument('-arch', default='resnet50')
     self.parser.add_argument('-workers', default=4, type=int, metavar='N', help='#data loading workers (default: 4)')
-    self.parser.add_argument('-epochs', default=60, type=int, help='number of total epochs to run')
-    self.parser.add_argument('-dropLR', default=40, type=int, metavar='N', help='# total epochs to drop LR')
+    self.parser.add_argument('-epochs', default=30, type=int, help='number of total epochs to run')
+    self.parser.add_argument('-dropLR', default=20, type=int, metavar='N', help='# total epochs to drop LR')
     self.parser.add_argument('-batchSize', default=64, type=int, help='mini-batch size (default: 64)')
     self.parser.add_argument('-LR', default=0.001, type=float, help='initial learning rate')
     self.parser.add_argument('-momentum', default=0.9, type=float, help='momentum')
@@ -70,11 +71,10 @@ class opts():
     
     self.args.batchSize = self.args.batchSize / self.args.nViews
     print '# model per batch: {}, # views: {} '.format(self.args.batchSize, self.args.nViews) 
-    
     if not os.path.exists(self.args.save_path):
-      os.mkdir(self.args.save_path)
-      if self.args.test:
-        os.mkdir(self.args.save_path + '/img_train')
-        os.mkdir(self.args.save_path + '/img_valSource')
-        os.mkdir(self.args.save_path + '/img_valTarget')
+	      os.mkdir(self.args.save_path)
+	      if self.args.test:
+		os.mkdir(self.args.save_path + '/img_train')
+		os.mkdir(self.args.save_path + '/img_valSource')
+		os.mkdir(self.args.save_path + '/img_valTarget')
     return self.args
