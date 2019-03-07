@@ -18,6 +18,8 @@ class opts():
     self.parser.add_argument('-lossNorm', default='l2', type=str, 
                                help='l2 | l1 | frobenius')
 
+    self.parser.add_argument('-batch_norm', default = 1, type = int, help='Whether to update BN')
+
     self.parser.add_argument('-DEBUG', default = 0, type = int, help='debug level')
     self.parser.add_argument('-runs', default = 5, type = int, help='number of runs')
     self.parser.add_argument('-arch', default='resnet50')

@@ -63,7 +63,7 @@ def main():
 		  prior_loss = SelectedDistanceConsistencyCriterion(Mean,Std,norm = args.lossNorm, std_weight = args.weightedNorm, eps=args.eps)
 	  else:
 		  Mean,Std,Corr = criterion.get_priors_from_file(args.propsFile)
-		  prior_loss = criterion.PriorToDistanceSMACOF(Mean,Std,norm = args.lossNorm, std_weight = args.weightedNorm, eps=args.eps)
+		  prior_loss = criterion.PriorToDistanceMDS(Mean,Std,norm = args.lossNorm, std_weight = args.weightedNorm, eps=args.eps)
 
 	  # Init loaders
 	  valSource_dataset = SourceDataset('test', ref.nValViews)
@@ -110,7 +110,7 @@ def main():
 	  print 'Start training...'
 	  for epoch in range(1, args.epochs + 1):
 	    adjust_learning_rate(optimizer, epoch, args.dropLR)
-	    train(args, [trainTarget_loader], model, prior_loss, True, logger, optimizer, epoch-1)
+	    train(args, [trainTarget_loader], model, prior_loss, args.batch_norm, logger, optimizer, epoch-1)
 	    valSource_mpjpe, valSource_loss, valSource_unSuploss = validate(args, 'Source', valSource_loader, model, prior_loss, epoch)
 	    valTarget_mpjpe, valTarget_loss, valTarget_unSuploss = validate(args, 'Target', valTarget_loader, model, prior_loss, epoch)
 
