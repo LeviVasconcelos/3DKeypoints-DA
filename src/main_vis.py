@@ -9,7 +9,7 @@ import torch.optim
 import torch.utils.data
 import torchvision.datasets as datasets
 
-from layers.PriorConsistencyCriterion import PriorConsistencyCriterion,SelectedDistanceConsistencyCriterion, get_priors_from_file, PriorToDistanceConsistencyCriterion
+from layers.PriorConsistencyCriterion import PriorToDistanceMDS,PriorConsistencyCriterion,SelectedDistanceConsistencyCriterion, get_priors_from_file, PriorToDistanceConsistencyCriterion
 
 from tensorboardX import SummaryWriter
 
@@ -59,11 +59,11 @@ def main():
 
 	  # Init priors:
 	  if 'distances' in args.propsFile:
-		  Mean,Std = get_priors_from_file(args.propsFile)
+		  Mean,Std, _= get_priors_from_file(args.propsFile)
 		  prior_loss = SelectedDistanceConsistencyCriterion(Mean,Std,norm = args.lossNorm, std_weight = args.weightedNorm, eps=args.eps)
 	  else:
-		  Mean,Std = get_priors_from_file(args.propsFile)
-		  prior_loss = PriorToDistanceConsistencyCriterion(Mean,Std,norm = args.lossNorm, std_weight = args.weightedNorm, eps=args.eps)
+		  Mean,Std,Corr = get_priors_from_file(args.propsFile)
+		  prior_loss = PriorToDistanceMDS(Mean,Std,norm = args.lossNorm, std_weight = args.weightedNorm, eps=args.eps)
 
 	  # Init loaders
 	  valSource_dataset = SourceDataset('test', ref.nValViews)

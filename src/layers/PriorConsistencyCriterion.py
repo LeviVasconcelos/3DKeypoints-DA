@@ -431,22 +431,114 @@ class PriorToDistanceConsistencyCriterion(nn.Module):
 
 
 
+
+
+
+class PriorToDistanceMDS(nn.Module):
+  def __init__(self, Mean, Std, norm = 'frobenius', std_weight = False, J=10, eps = 10**(-4), cuda=True):
+    super(PriorToDistanceMDS, self).__init__()
+
+    self.J = J
+    self.eps = eps
+
+    mask_props = torch.FloatTensor(1,self.J,self.J,self.J,self.J).zero_() 
+    mask_props_self =  torch.FloatTensor(1,self.J,self.J,self.J,self.J).zero_()
+
+
+    for i in range(self.J):
+            mask_props_self[0,i,i,i,i]=1.
+	    for j in range(self.J):
+		    for l in range(self.J):
+			    for m in range(self.J):
+				if i==j or l==m or (i==l and j==m) or (i==m and j==l):
+					mask_props[0,i,j,l,m]=1.0
+					
+
+
+    self.normalizer = (1-mask_props) + mask_props_self
+
+    self.normalizer = self.normalizer/(self.normalizer.sum(-1).sum(-1).view(1,self.J,self.J,1,1))
+
+    self.normalizer = torch.autograd.Variable(self.normalizer)
+    self.mask_props = torch.autograd.Variable(mask_props)
+    self.mask_props_self = torch.autograd.Variable(mask_props_self)
+
+    if cuda:
+	self.normalizer = self.normalizer.cuda()
+	self.mask_props = self.mask_props.cuda()
+	self.mask_props_self = self.mask_props_self.cuda()
+
+
+    self.priorMean = torch.autograd.Variable(Mean,requires_grad=False)
+    self.priorMean=self.priorMean.view(1,self.J, self.J, self.J,self.J)
+
+    self.priorStd = torch.autograd.Variable(Std,requires_grad=False)
+    self.priorStd=self.priorStd.view(1,self.J, self.J, self.J,self.J)
+
+    # Init norm values
+    self.norm=self.l2
+
+
+  ######################
+  #### FORWARD PASS ####
+  ######################
+
+  def forward(self, prediction, logger=None, n_iter=0, plot=False):
+    prediction = prediction.view(prediction.shape[0],self.J,-1)
+    dists = compute_distances(prediction, eps=self.eps)
+    props = compute_proportions(dists, eps=self.eps).view(dists.shape[0],self.J,self.J,self.J,self.J)
+
+    w = (torch.log(self.compute_likelihood(props)+self.eps)*self.mask_props).sum(-1).sum(-1)
+    gt_dists = self.compute_gt(dists)
+
+    w = w.view(w.shape[0],-1)
+    w = w/w.mean(-1).view(-1,1)
+
+    mse = self.norm(dists-gt_dists,w)
+
+    return mse.mean()
+
+
+
+  def compute_likelihood(self, x):
+	return torch.exp(-torch.pow(x-self.priorMean,2)/self.priorStd.pow(2))
+
+  def compute_gt(self,x):
+	tiled = x.view(x.shape[0],-1).repeat(1,self.J**2).view(x.shape[0],self.J,self.J,self.J,self.J)
+	tiled.detach()
+	return (self.priorMean*tiled*self.normalizer).sum(-1).sum(-1)
+
+  ##############################
+  #### DEFINITION OF NORMS #####
+  ##############################
+
+  def l2(self,x,w):
+	x=x.view(x.shape[0],-1)
+	return (w*(x.pow(2))).sum(-1)
+
+
+
+
 ######################
 #### PRIOR LOADER ####
 ######################
 
 def get_priors_from_file(path, device='cuda', eps=10**(-6)):
 	priors = np.load(path)
+
+	correlation = np.corrcoef(priors.reshape(-1,priors.shape[0]))
 	mean = priors.mean(0)
 	std = priors.std(0)
 
 	mean = torch.from_numpy(mean).float()
 	std = torch.from_numpy(std).float()
 
-	if device=='cuda':
-		return mean.cuda(), std.cuda()
+	correlation = torch.from_numpy(correlation).float()
 
-	return mean, std
+	if device=='cuda':
+		return mean.cuda(), std.cuda(), correlation.cuda()
+
+	return mean, std, correlation
 
 
 
