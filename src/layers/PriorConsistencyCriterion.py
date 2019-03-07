@@ -492,7 +492,7 @@ class PriorToDistanceMDS(nn.Module):
     gt_dists = self.compute_gt(dists)
 
     w = w.view(w.shape[0],-1)
-    w = w/w.mean(-1).view(-1,1)
+    w = w/w.sum(-1).view(-1,1)
 
     mse = self.norm(dists-gt_dists,w)
 
@@ -501,7 +501,7 @@ class PriorToDistanceMDS(nn.Module):
 
 
   def compute_likelihood(self, x):
-	return torch.exp(-torch.pow(x-self.priorMean,2)/self.priorStd.pow(2))
+	return torch.exp(-torch.pow(x-self.priorMean,2)/(2*self.priorStd.pow(2)))
 
   def compute_gt(self,x):
 	tiled = x.view(x.shape[0],-1).repeat(1,self.J**2).view(x.shape[0],self.J,self.J,self.J,self.J)
@@ -515,6 +515,127 @@ class PriorToDistanceMDS(nn.Module):
   def l2(self,x,w):
 	x=x.view(x.shape[0],-1)
 	return (w*(x.pow(2))).sum(-1)
+
+
+
+
+class PriorToDistanceSMACOF(nn.Module):
+  def __init__(self, Mean, Std, norm = 'frobenius', std_weight = False, J=10, eps = 10**(-4), cuda=True):
+    super(PriorToDistanceSMACOF, self).__init__()
+
+    self.J = J
+    self.eps = eps
+
+    self.eyeJ = torch.eye(self.J).unsqueeze(0).float()
+    self.eyeK = torch.eye(3).unsqueeze(0).float()
+
+    mask_props = torch.FloatTensor(1,self.J,self.J,self.J,self.J).zero_() 
+    mask_props_self =  torch.FloatTensor(1,self.J,self.J,self.J,self.J).zero_()
+    self.dists_mask = torch.FloatTensor(1,self.J,self.J).zero_() 
+
+    for i in range(self.J):
+	    mask_props_self[0,i,i,i,i]=1.
+	    for j in range(self.J):
+		    if j>i:
+			self.dists_mask[0,i,j]=1.
+		    for l in range(self.J):
+			    for m in range(self.J):
+				if i==j or l==m or (i==l and j==m) or (i==m and j==l):
+					mask_props[0,i,j,l,m]=1.0
+
+
+    self.normalizer = (1-mask_props) + mask_props_self				
+    self.normalizer = self.normalizer/(self.normalizer.sum(-1).sum(-1).view(1,self.J,self.J,1,1))
+
+    self.normalizer = torch.autograd.Variable(self.normalizer)
+    self.mask_props = torch.autograd.Variable(mask_props)
+    self.eyeJ = torch.autograd.Variable(self.eyeJ)
+    self.eyeK = torch.autograd.Variable(self.eyeK)
+    self.dists_mask = torch.autograd.Variable(self.dists_mask)
+
+    if cuda:
+	self.normalizer = self.normalizer.cuda()
+	self.mask_props = self.mask_props.cuda()
+	self.eyeJ = self.eyeJ.cuda()
+	self.eyeK = self.eyeK.cuda()
+	self.dists_mask = self.dists_mask.cuda()
+
+    self.priorMean = torch.autograd.Variable(Mean,requires_grad=False)
+    self.priorMean=self.priorMean.view(1,self.J, self.J, self.J,self.J)
+
+    self.priorStd = torch.autograd.Variable(Std,requires_grad=False)
+    self.priorStd=self.priorStd.view(1,self.J, self.J, self.J,self.J)
+
+
+
+  ######################
+  #### FORWARD PASS ####
+  ######################
+
+  def forward(self, prediction, logger=None, n_iter=0, plot=False):
+    prediction = prediction.view(prediction.shape[0],self.J,-1)
+    dists = compute_distances(prediction, eps=self.eps)
+    props = compute_proportions(dists, eps=self.eps).view(dists.shape[0],self.J,self.J,self.J,self.J)
+
+    w = (torch.log(self.compute_likelihood(props)+self.eps)*self.mask_props).sum(-1).sum(-1)
+    gt_dists = self.compute_gt(dists)
+
+    w = w.view(w.shape[0],-1)
+    w = w/w.sum(-1).view(-1,1)		# TODO Compute in another way????
+
+    error = self.compute_smacof(prediction, dists, w.view(w.shape[0],self.J,self.J), gt_dists)
+
+    return error.mean()
+
+
+  def compute_smacof(self,x,d,w,delta):
+
+	#### Compute first term: \sum_{i<j} w_{ij} \delta_{ij}^2 ####
+	delta = delta.view(delta.shape[0],self.J, self.J)
+	first_term = (delta.pow(2)*w*self.dists_mask).sum(-1).sum(-1)	
+
+	#### Compute the second term: \sum_{i<j} w_{ij} d^2_{ij}(X) = trace(X'VX)####
+	V_ij = -w
+	V_ii = w.sum(-1).view(w.shape[0],self.J, 1)
+	V_ii = V_ii*self.eyeJ
+
+	V = V_ij * (1.-self.eyeJ) + V_ii
+
+        X = x.view(x.shape[0],self.J,-1)
+	T = x.permute(0,2,1)
+	TV = torch.bmm(T,V)
+	TVX = torch.bmm(TV,X)
+
+	second_term = self.trace(TVX)
+
+	#### Compute the third term: -2 \sum_{i<j} w_{ij}\delta_{i,j} d_{ij}(X) = trace(X'B(Z)Z)####
+	mask = (d==0).float().detach()
+	d_masked = d + mask	# Here the mask is applied to avoid divisions by zero
+	b_0 = -(w*delta)/d_masked
+	B_ij = b_0 * (1.-mask)
+	B_ii = - B_ij.sum(-1).view(d.shape[0],self.J,1)
+	B_ii = B_ii*self.eyeJ
+
+	B = B_ij + B_ii
+	
+	Z = X			# TODO Change/Iterate???
+	TB = torch.bmm(T,B)
+	TBZ = torch.bmm(TB,Z)
+	
+	third_term = -2*self.trace(TBZ)
+	
+	return first_term + second_term + third_term
+	
+  def trace(self,x):
+	return (x*self.eyeK).sum(-1).sum(-1)
+
+  def compute_likelihood(self, x):
+	return torch.exp(-torch.pow(x-self.priorMean,2)/(2*self.priorStd.pow(2)))
+
+  def compute_gt(self,x):
+	tiled = x.view(x.shape[0],-1).repeat(1,self.J**2).view(x.shape[0],self.J,self.J,self.J,self.J)
+	tiled.detach()
+	return (self.priorMean*tiled*self.normalizer).sum(-1).sum(-1)
 
 
 
