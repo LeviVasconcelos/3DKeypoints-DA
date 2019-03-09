@@ -11,11 +11,11 @@ eps = 1e-6
 imgSize = 224
 
 #Change data dir here
-ShapeNet_dir = '../../../3DKeypoints-DA/data/ShapeNet/'
-ModelNet_dir = '../../../3DKeypoints-DA/data/ModelNet/'
-DCNN_dir = '../../../3DKeypoints-DA/data/3DCNN/'
-Redwood_dir = '../../../3DKeypoints-DA/data/Redwood_depth/'
-RedwoodRGB_dir = '../../../3DKeypoints-DA/data/Redwood_RGB/'
+ShapeNet_dir = '../data/ShapeNet/'
+ModelNet_dir = '../data/ModelNet/'
+DCNN_dir = '../data/3DCNN/'
+Redwood_dir = '../data/Redwood_depth/'
+RedwoodRGB_dir = '../data/Redwood_RGB/'
 
 ModelNet_version = ''
 ShapeNet_version = ''

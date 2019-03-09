@@ -6,7 +6,7 @@ from utils.eval import accuracy, shapeConsistency, accuracy_dis
 import cv2
 import ref
 from progress.bar import Bar
-
+from layers.prior_generator import compute_distances
 
 
 def train_step(args, split, epoch, loader, model, loss, update_bn=True, logger=None, optimizer = None, M = None, f = None, nViews=ref.nViews):
@@ -24,14 +24,15 @@ def train_step(args, split, epoch, loader, model, loss, update_bn=True, logger=N
 
   idx_0 = len(loader)*epoch
 
-  for i, (input, _, _) in enumerate(loader):
-    
+  for i, (input, target, _) in enumerate(loader):
+    target_var = torch.autograd.Variable(target.cuda())
+    dt = compute_distances(target_var)
     input_var = torch.autograd.Variable(input.cuda())
     output = model(input_var)
-    
-    cr_loss = loss(output, logger, idx_0+i, plot=i==0)
+    cr_loss = loss(output, logger, idx_0+i, i==0,dt)
 
     prior_loss.append(cr_loss.data[0])
+
 
     if split == 'train':
       optimizer.zero_grad()
