@@ -29,6 +29,7 @@ class opts():
     self.parser.add_argument('-batchSize', default=64, type=int, help='mini-batch size (default: 64)')
     self.parser.add_argument('-LR', default=0.001, type=float, help='initial learning rate')
     self.parser.add_argument('-momentum', default=0.9, type=float, help='momentum')
+    self.parser.add_argument('-temperature', default=1., type=float, help='temperature')
     self.parser.add_argument('-weight_decay', default=1e-4, type=float, help='weight decay (default: 1e-4)')
     self.parser.add_argument('-loadModel', default='', type=str, help='path to loadmodel (default: none)')
     self.parser.add_argument('-logDir', default='', type=str, help='where to store the tensorboard event catcher')

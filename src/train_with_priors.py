@@ -8,7 +8,6 @@ import ref
 from progress.bar import Bar
 from layers.prior_generator import compute_distances
 
-
 def train_step(args, split, epoch, loader, model, loss, update_bn=True, logger=None, optimizer = None, M = None, f = None, nViews=ref.nViews):
   losses, mpjpe, mpjpe_r = AverageMeter(), AverageMeter(), AverageMeter()
   viewLosses, shapeLosses, supLosses = AverageMeter(), AverageMeter(), AverageMeter()
@@ -62,7 +61,9 @@ def eval_step(args, split, epoch, loader, model, loss, update=True, logger=None,
     target_var = torch.autograd.Variable(target.cuda(),volatile=True)
     output = model(input_var)
     
-    cr_loss = loss(output, logger, idx_0+i, plot=i==0)
+    dt = compute_distances(target_var)
+    
+    cr_loss = loss(output, logger, idx_0+i, plot=i==0,dt=dt)
 
     cr_regr_loss = ((output - target_var.view(target_var.shape[0],-1)) ** 2).sum() / ref.J / 3 / input.shape[0]
 

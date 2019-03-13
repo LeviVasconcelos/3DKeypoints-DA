@@ -70,6 +70,7 @@ def main():
 	  valTarget_loader = torch.utils.data.DataLoader(valTarget_dataset, batch_size = 1, 
 		                shuffle=False, num_workers=1, pin_memory=True, collate_fn=collate_fn_cat)
 	  
+	  
 	  if args.test:
 	    test(args, valTarget_loader, model, prior_loss, None)
 	    return

@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 from torch.autograd import Function
 import numpy as np
 from utils.horn87 import horn87, RotMat
@@ -7,6 +8,7 @@ import ref
 from prior_generator import compute_distances, compute_proportions, replicate_mask 
 from scipy.misc import toimage
 from torchviz import make_dot
+import math
 
 ###########################
 #### LOSS DEFINITIONS #####
@@ -37,6 +39,9 @@ class PriorToDistanceConsistencyCriterion(nn.Module):
     mask_props = torch.FloatTensor(1,self.J,self.J,self.J,self.J).zero_() + 1.
     mask_props_self =  torch.FloatTensor(1,self.J,self.J,self.J,self.J).zero_()
 
+    mask_props_inv_self =  torch.FloatTensor(1,self.J,self.J,self.J,self.J).zero_()
+
+
     
     for (i,j) in EDGES:
 	adjacency[i,j]=1.
@@ -45,6 +50,8 @@ class PriorToDistanceConsistencyCriterion(nn.Module):
 
     for i in range(self.J):
             mask_props_self[0,i,i,i,i]=1.
+	    mask_props_inv_self[0,i,i,:,:]=1.
+	    mask_props_inv_self[0,:,:,i,i]=1.
 	    for j in range(self.J):
 		    if j>i:
 			self.upper_triangular[0,i,j]=1.
@@ -62,6 +69,8 @@ class PriorToDistanceConsistencyCriterion(nn.Module):
     self.mask_props = torch.autograd.Variable(mask_props)
     self.mask_props_self = torch.autograd.Variable(mask_props_self)
 
+    self.mask_props_inv_self = torch.autograd.Variable(mask_props_inv_self)
+
     self.priorMean = torch.autograd.Variable(Mean,requires_grad=False)
     self.priorMean=self.priorMean.view(1,self.J, self.J, self.J,self.J)
 
@@ -73,6 +82,8 @@ class PriorToDistanceConsistencyCriterion(nn.Module):
 	self.adjacency = self.adjacency.cuda()
 	self.mask_props = self.mask_props.cuda()
 	self.mask_props_self = self.mask_props_self.cuda()
+
+	self.mask_props_inv_self = self.mask_props_inv_self.cuda()
 	self.eyeJ2 = self.eyeJ2.cuda()
 	self.eyeJ = self.eyeJ.cuda()
 
@@ -114,16 +125,19 @@ class PriorToDistanceConsistencyCriterion(nn.Module):
 
 
 
-class PriorConsistencyCriterion(nn.Module):
-  def __init__(self, Mean, Std, norm = 'l2', std_weight = False, J=10, eps = 10**(-4), cuda=True):
-    super(PriorToDistanceConsistencyCriterion, self).__init__(Mean, Std, norm, std_weight, J, eps, cuda)
+class PriorConsistencyCriterion(PriorToDistanceConsistencyCriterion):
+  def __init__(self, Mean, Std, norm = 'l2', std_weight = False, J=10, eps = 10**(-6), cuda=True):
+    super(PriorConsistencyCriterion, self).__init__(Mean, Std, norm, std_weight, J, eps, cuda)
 
-  def forward(self, prediction, logger=None, n_iter=0, plot=False):
+  def forward(self, prediction, logger=None, n_iter=0, plot=False, dt=None):
     prediction = prediction.view(prediction.shape[0],self.J,-1)
-    dists = compute_distances(prediction, eps=self.eps)
-    props = compute_proportions(dists, eps=self.eps).view(dists.shape[0],self.J,self.J,self.J,self.J)
+    dists = compute_distances(prediction, eps=self.eps)*(1.-self.eyeJ)
 
-    mse = self.norm((props-self.priorMean)*torch.exp(-self.priorStd)+self.eps)/(torch.exp(-self.priorStd).sum())
+    dists = (dists+dists.permute(0,2,1))/2.
+    props = compute_proportions(dists, eps=self.eps).view(-1,self.J,self.J,self.J,self.J)
+
+    diff = (props-self.priorMean)*(1.-self.mask_props_inv_self)
+    mse = l2(diff).pow(0.5)/((1.-self.mask_props_inv_self).sum())
     return mse.mean()
 
 
@@ -136,8 +150,7 @@ class PriorToDistanceMDS(PriorToDistanceConsistencyCriterion):
     super(PriorToDistanceMDS, self).__init__(Mean, Std, norm, std_weight, J, eps, cuda)
 
     factor = self.adjacency#1.#torch.exp(-self.priorStd)
-    self.mask_props = factor*self.mask_props
-    self.normalizer = self.mask_props + self.mask_props_self
+    self.normalizer = factor*self.mask_props + self.mask_props_self
     self.normalizer = self.normalizer/(self.normalizer.sum(-1).sum(-1).view(1,self.J,self.J,1,1))
 
     if cuda:
@@ -197,15 +210,20 @@ class PriorToDistanceCHECK(PriorToDistanceConsistencyCriterion):
 #### Weighted MDS, SMACOF ####
 ##############################
 class PriorToDistanceSMACOF(PriorToDistanceConsistencyCriterion):
-  def __init__(self, Mean, Std, norm = 'frobenius', std_weight = False, J=10, eps = 10**(-4), cuda=True):
+  def __init__(self, Mean, Std, Corr, norm = 'frobenius', std_weight = False, J=10, eps = 10**(-4), cuda=True):
     super(PriorToDistanceSMACOF, self).__init__(Mean, Std, norm, std_weight, J, eps, cuda)
 
     self.eyeK = torch.eye(3).unsqueeze(0).float()
-    self.dists_mask = torch.FloatTensor(1,self.J,self.J).zero_() 
+    self.dists_mask = torch.FloatTensor(1,self.J,self.J).zero_()
 
-    factor = self.adjacency#1.#torch.exp(-self.priorStd)
-    self.mask_props = factor*self.mask_props
-    self.normalizer = self.mask_props + self.mask_props_self
+
+    for i in range(self.J):
+	    for j in range(self.J):
+		    if j>i:
+			self.dists_mask[0,i,j]=1.
+
+    factor = torch.exp(-self.priorStd/(self.priorMean+self.eps))
+    self.normalizer = factor*self.mask_props + self.mask_props_self
     self.normalizer = self.normalizer/(self.normalizer.sum(-1).sum(-1).view(1,self.J,self.J,1,1))
 
     self.eyeK = torch.autograd.Variable(self.eyeK)
@@ -216,26 +234,20 @@ class PriorToDistanceSMACOF(PriorToDistanceConsistencyCriterion):
 	self.eyeK = self.eyeK.cuda()
 	self.dists_mask = self.dists_mask.cuda()
 
+    if Corr is not None:
+	    factor = torch.exp((torch.abs(Corr*T))).view(1,self.J,self.J,self.J,self.J)#1.#torch.exp(-self.priorStd)
+	    factor = torch.autograd.Variable(factor.cuda())
+	    self.normalizer = factor*self.mask_props*self.adjacency + self.mask_props_self
+	    self.normalizer = self.normalizer/(self.normalizer.sum(-1).sum(-1).view(1,self.J,self.J,1,1))
+
 
   def forward(self, prediction, logger=None, n_iter=0, plot=False, dt=None):
-    prediction = prediction.view(prediction.shape[0],self.J,-1)
-    dists = compute_distances(prediction, eps=self.eps)
-    props = compute_proportions(dists, eps=self.eps).view(dists.shape[0],self.J,self.J,self.J,self.J)
-
-    w = (torch.log(self.compute_likelihood(props)+self.eps)).sum(-1).sum(-1)
-    gt_dists = self.compute_gt(dists)*self.adjacency.view(1,self.J,self.J)
-
-    w = w.view(w.shape[0],-1)
-    w = w/w.sum(-1).view(-1,1)		# TODO Compute in another way????
-
-    error = self.compute_smacof(prediction, dists*self.adjacency.view(1,self.J,self.J), w.view(w.shape[0],self.J,self.J), gt_dists)
-
-    return error.mean()
+    	pass
 
 
 
 
-  def compute_smacof(self,x,d,w,delta):
+  def compute_smacof_weighted(self,x,d,delta, w):
 
 	#### Compute first term: \sum_{i<j} w_{ij} \delta_{ij}^2 ####
 	delta = delta.view(delta.shape[0],self.J, self.J)
@@ -243,10 +255,11 @@ class PriorToDistanceSMACOF(PriorToDistanceConsistencyCriterion):
 
 	#### Compute the second term: \sum_{i<j} w_{ij} d^2_{ij}(X) = trace(X'VX)####
 	V_ij = -w
-	V_ii = w.sum(-1).view(w.shape[0],self.J, 1)
+	V_ii = (w*(1.-self.eyeJ)).sum(-1).view(w.shape[0],self.J, 1)
 	V_ii = V_ii*self.eyeJ
 
 	V = V_ij * (1.-self.eyeJ) + V_ii
+	V = V.repeat(x.shape[0],1,1)
 
         X = x.view(x.shape[0],self.J,-1)
 	T = x.permute(0,2,1)
@@ -263,6 +276,46 @@ class PriorToDistanceSMACOF(PriorToDistanceConsistencyCriterion):
 	B_ii = - B_ij.sum(-1).view(d.shape[0],self.J,1)
 	B_ii = B_ii*self.eyeJ
 
+	B = B_ij*(1.-self.eyeJ) + B_ii
+	
+	Z = X			# TODO Change/Iterate???
+	TB = torch.bmm(T,B)
+	TBZ = torch.bmm(TB,Z)
+	
+	third_term = -2*self.trace(TBZ)
+	
+	return first_term + second_term + third_term
+
+
+
+  def compute_smacof(self,x,d,delta):
+
+	#### Compute first term: \sum_{i<j} w_{ij} \delta_{ij}^2 ####
+	delta = delta.view(delta.shape[0],self.J, self.J)
+	first_term = (delta.pow(2)*self.dists_mask).sum(-1).sum(-1)	
+
+	#### Compute the second term: \sum_{i<j} w_{ij} d^2_{ij}(X) = trace(X'VX)####
+	V_ij = -1.*(1.-self.eyeJ)
+	V_ii = (self.J-1.)*(self.eyeJ)
+
+	V = V_ij + V_ii
+	V = V.repeat(x.shape[0],1,1)
+
+        X = x.view(x.shape[0],self.J,-1)
+	T = x.permute(0,2,1)
+	TV = torch.bmm(T,V)
+	TVX = torch.bmm(TV,X)
+
+	second_term = self.trace(TVX)
+
+	#### Compute the third term: -2 \sum_{i<j} w_{ij}\delta_{i,j} d_{ij}(X) = trace(X'B(Z)Z)####
+	mask = (d.clone()==0).float()
+	d_masked = d + mask	# Here the mask is applied to avoid divisions by zero
+	b_0 = -(delta)/d_masked
+	B_ij = b_0 * (1.-mask)
+	B_ii = - B_ij.sum(-1).view(d.shape[0],self.J,1)
+	B_ii = B_ii*self.eyeJ
+
 	B = B_ij + B_ii
 	
 	Z = X			# TODO Change/Iterate???
@@ -272,9 +325,67 @@ class PriorToDistanceSMACOF(PriorToDistanceConsistencyCriterion):
 	third_term = -2*self.trace(TBZ)
 	
 	return first_term + second_term + third_term
+
+  def iterate_smacof(self,x,delta,iters=10):
+
+	#### Compute first term: \sum_{i<j} w_{ij} \delta_{ij}^2 ####
+	delta = delta.view(delta.shape[0],self.J, self.J)
+
+	#### Compute the second term: \sum_{i<j} w_{ij} d^2_{ij}(X) = trace(X'VX)####
+        X = x.view(x.shape[0],self.J,-1)
+	T = x.permute(0,2,1)
+
+	for i in range(iters):
+		d = compute_distances(X, eps=self.eps)
+		mask = (d.clone()==0).float()
+		d_masked = d + mask	# Here the mask is applied to avoid divisions by zero
+		b_0 = -(delta)/d_masked
+		B_ij = b_0 * (1.-mask)
+		B_ii = - B_ij.sum(-1).view(d.shape[0],self.J,1)
+		B_ii = B_ii*self.eyeJ
+
+		B = B_ij + B_ii
+		X = 1./self.J*torch.bmm(B,X) 
 	
+	return X
+
+
   def trace(self,x):
 	return (x*self.eyeK).sum(-1).sum(-1)
+
+
+
+
+class PriorToDistanceObjSMACOF(PriorToDistanceSMACOF):
+  def __init__(self, Mean, Std, norm = 'frobenius', std_weight = False, J=10, eps = 10**(-4), cuda=True):
+    super(PriorToDistanceObjSMACOF, self).__init__(Mean, Std, Corr, norm, std_weight, J, eps, cuda)
+
+  def forward(self, prediction, logger=None, n_iter=0, plot=False, dt=None):
+    prediction = prediction.view(prediction.shape[0],self.J,-1)
+    dists = compute_distances(prediction, eps=self.eps)
+    props = compute_proportions(dists, eps=self.eps).view(dists.shape[0],self.J,self.J,self.J,self.J)
+
+    gt_dists = self.compute_gt(dists)*self.adjacency.view(1,self.J,self.J)
+    gt_dists = (gt_dists+gt_dists.permute(0,2,1))/2.
+    error = self.compute_smacof(prediction, dists*self.adjacency.view(1,self.J,self.J),  gt_dists)
+
+    return error.mean()
+
+
+
+
+class PriorToDistanceWeightedSMACOF(PriorToDistanceSMACOF):
+  def __init__(self, Mean, Std, Corr, norm = 'frobenius', std_weight = False, J=10, eps = 10**(-4), cuda=True,T=1.):
+    super(PriorToDistanceWeightedCorrSMACOF, self).__init__(Mean, Std, Corr, norm, std_weight, J, eps, cuda)
+
+  def forward(self, prediction, logger=None, n_iter=0, plot=False, dt=None):
+    prediction = prediction.view(prediction.shape[0],self.J,-1)
+    dists = compute_distances(prediction, eps=self.eps)
+    props = compute_proportions(dists, eps=self.eps).view(dists.shape[0],self.J,self.J,self.J,self.J)
+    gt_dists = self.compute_gt(dists)
+    error = self.compute_smacof_weighted(prediction, dists*(1.-self.eyeJ),gt_dists*(1.-self.eyeJ), self.adjacency.view(1,self.J,self.J))/self.J
+
+    return error.mean()
 
 
 
@@ -282,86 +393,22 @@ class PriorToDistanceSMACOF(PriorToDistanceConsistencyCriterion):
 ##############################
 #### Weighted MDS, SMACOF ####
 ##############################
-class PriorToDistanceSupervisedSMACOF(PriorToDistanceConsistencyCriterion):
-  def __init__(self, Mean, Std, norm = 'frobenius', std_weight = False, J=10, eps = 10**(-4), cuda=True):
-    super(PriorToDistanceSMACOF, self).__init__(Mean, Std, norm, std_weight, J, eps, cuda)
+class PriorToDistanceSupervisedSMACOF(PriorToDistanceSMACOF):
+  def __init__(self, Mean, Std, Corr, norm = 'frobenius', std_weight = False, J=10, eps = 10**(-4), cuda=True):
+    super(PriorToDistanceSupervisedSMACOF, self).__init__(Mean, Std, Corr, norm, std_weight, J, eps, cuda)
 
-    self.eyeK = torch.eye(3).unsqueeze(0).float()
-    self.dists_mask = torch.FloatTensor(1,self.J,self.J).zero_() 
-
-    factor = self.adjacency#1.#torch.exp(-self.priorStd)
-    self.mask_props = factor*self.mask_props
-    self.normalizer = self.mask_props + self.mask_props_self
-    self.normalizer = self.normalizer/(self.normalizer.sum(-1).sum(-1).view(1,self.J,self.J,1,1))
-
-    self.eyeK = torch.autograd.Variable(self.eyeK)
-    self.dists_mask = torch.autograd.Variable(self.dists_mask)
-
-    if cuda:
-	self.normalizer = self.normalizer.cuda()
-	self.eyeK = self.eyeK.cuda()
-	self.dists_mask = self.dists_mask.cuda()
-
-
-  def forward(self, prediction, logger=None, n_iter=0, plot=False, dt=None):
+  def forward(self, prediction, logger=None, n_iter=0, plot=False, dt=0.):
     prediction = prediction.view(prediction.shape[0],self.J,-1)
     dists = compute_distances(prediction, eps=self.eps)
-    props = compute_proportions(dists, eps=self.eps).view(dists.shape[0],self.J,self.J,self.J,self.J)
 
-    w = dists*0+1.
-    gt_dists = self.compute_gt(dists)
-
-    w = w.view(w.shape[0],-1)
-    w = w/w.sum(-1).view(-1,1)		# TODO Compute in another way????
-
-    error = self.compute_smacof(prediction, dists*self.adjacency.view(1,self.J,self.J), w.view(w.shape[0],self.J,self.J), gt_dists)
-
-    return error.mean()
+    gt_dists = self.compute_gt(dists)#*self.adjacency.view(1,self.J,self.J)
+    X = self.iterate_smacof(prediction, gt_dists).detach()
+    error = self.norm(X-prediction)/self.J
+    return error.mean()#X.view(X.shape[0],-1)
 
 
 
-
-  def compute_smacof(self,x,d,w,delta):
-
-	#### Compute first term: \sum_{i<j} w_{ij} \delta_{ij}^2 ####
-	delta = delta.view(delta.shape[0],self.J, self.J)
-	first_term = (delta.pow(2)*w*self.dists_mask).sum(-1).sum(-1)	
-
-	#### Compute the second term: \sum_{i<j} w_{ij} d^2_{ij}(X) = trace(X'VX)####
-	V_ij = -w
-	V_ii = w.sum(-1).view(w.shape[0],self.J, 1)
-	V_ii = V_ii*self.eyeJ
-
-	V = V_ij * (1.-self.eyeJ) + V_ii
-
-        X = x.view(x.shape[0],self.J,-1)
-	T = x.permute(0,2,1)
-	TV = torch.bmm(T,V)
-	TVX = torch.bmm(TV,X)
-
-	second_term = self.trace(TVX)
-
-	#### Compute the third term: -2 \sum_{i<j} w_{ij}\delta_{i,j} d_{ij}(X) = trace(X'B(Z)Z)####
-	mask = (d.clone()==0).float()
-	d_masked = d + mask	# Here the mask is applied to avoid divisions by zero
-	b_0 = -(w*delta)/d_masked
-	B_ij = b_0 * (1.-mask)
-	B_ii = - B_ij.sum(-1).view(d.shape[0],self.J,1)
-	B_ii = B_ii*self.eyeJ
-
-	B = B_ij + B_ii
 	
-	Z = X			# TODO Change/Iterate???
-	TB = torch.bmm(T,B)
-	TBZ = torch.bmm(TB,Z)
-	
-	third_term = -2*self.trace(TBZ)
-	
-	return first_term + second_term + third_term
-	
-  def trace(self,x):
-	return (x*self.eyeK).sum(-1).sum(-1)
-
 
 
 ######################
@@ -397,7 +444,7 @@ def l2(x,w=1.):
 	return (w*(x.pow(2))).sum(-1)
 
 def frobenius(x):
-	assert len(x.shape)==2
+	assert len(x.shape)==3
 
 	x_transposed = x.permute(0,2,1) # B x K x D
 	xTx = torch.bmm(x_transposed,x)
