@@ -19,10 +19,9 @@ the current predictions and the priors'''
 EDGES = [(0,1),(0,2),(1,3),(2,3),(2,4),(2,6),(3,5),(3,7),(4,5),(4,8),(5,9)]
 
 class PriorToDistanceConsistencyCriterion(nn.Module):
-  def __init__(self, Mean, Std, norm = 'l2', std_weight = False, J=10, eps = 10**(-4), cuda=True):
+  def __init__(self, Mean, Std,  DMean, DStd, norm = 'l2', std_weight = False, J=10, eps = 10**(-4), cuda=True):
     super(PriorToDistanceConsistencyCriterion, self).__init__()
 
-    print(norm)
     self.J = J
     self.eps = eps
 
@@ -77,6 +76,12 @@ class PriorToDistanceConsistencyCriterion(nn.Module):
     self.priorStd = torch.autograd.Variable(Std,requires_grad=False)
     self.priorStd=self.priorStd.view(1,self.J, self.J, self.J,self.J)
 
+    self.distMean = torch.autograd.Variable(DMean,requires_grad=False)
+    self.distMean = self.distMean.view(1,self.J, self.J)
+
+    self.distStd = torch.autograd.Variable(DStd,requires_grad=False)
+    self.distStd=self.distStd.view(1,self.J, self.J)
+
     if cuda:
 	self.upper_triangular = self.upper_triangular.cuda()
 	self.adjacency = self.adjacency.cuda()
@@ -126,18 +131,18 @@ class PriorToDistanceConsistencyCriterion(nn.Module):
 
 
 class PriorConsistencyCriterion(PriorToDistanceConsistencyCriterion):
-  def __init__(self, Mean, Std, norm = 'l2', std_weight = False, J=10, eps = 10**(-6), cuda=True):
-    super(PriorConsistencyCriterion, self).__init__(Mean, Std, norm, std_weight, J, eps, cuda)
+  def __init__(self, Mean, Std,  DMean, DStd, norm = 'l2', std_weight = False, J=10, eps = 10**(-6), cuda=True):
+    super(PriorConsistencyCriterion, self).__init__(Mean, Std,  DMean, DStd, norm, std_weight, J, eps, cuda)
 
   def forward(self, prediction, logger=None, n_iter=0, plot=False, dt=None):
     prediction = prediction.view(prediction.shape[0],self.J,-1)
     dists = compute_distances(prediction, eps=self.eps)*(1.-self.eyeJ)
 
     dists = (dists+dists.permute(0,2,1))/2.
-    props = compute_proportions(dists, eps=self.eps).view(-1,self.J,self.J,self.J,self.J)
-
-    diff = (props-self.priorMean)*(1.-self.mask_props_inv_self)
-    mse = l2(diff).pow(0.5)/((1.-self.mask_props_inv_self).sum())
+    gt_dists = self.compute_gt(dists)
+    gt_dists = (gt_dists+gt_dists.permute(0,2,1))/2.
+    diff = (dists-gt_dists).view(prediction.shape[0],self.J,self.J)
+    mse = self.norm(diff)/self.J**2
     return mse.mean()
 
 
@@ -146,8 +151,8 @@ class PriorConsistencyCriterion(PriorToDistanceConsistencyCriterion):
 ##############################
 
 class PriorToDistanceMDS(PriorToDistanceConsistencyCriterion):
-  def __init__(self, Mean, Std, norm = 'l2', std_weight = False, J=10, eps = 10**(-4), cuda=True):
-    super(PriorToDistanceMDS, self).__init__(Mean, Std, norm, std_weight, J, eps, cuda)
+  def __init__(self, Mean, Std,  DMean, DStd, norm = 'l2', std_weight = False, J=10, eps = 10**(-4), cuda=True):
+    super(PriorToDistanceMDS, self).__init__(Mean, Std, DMean, DStd, norm, std_weight, J, eps, cuda)
 
     factor = self.adjacency#1.#torch.exp(-self.priorStd)
     self.normalizer = factor*self.mask_props + self.mask_props_self
@@ -188,30 +193,13 @@ class PriorToDistanceMDS(PriorToDistanceConsistencyCriterion):
 
 
 
-class PriorToDistanceCHECK(PriorToDistanceConsistencyCriterion):
-  def __init__(self, Mean, Std, norm = 'l2', std_weight = False, J=10, eps = 10**(-4), cuda=True):
-    super(PriorToDistanceCHECK, self).__init__(Mean, Std, norm, std_weight, J, eps, cuda)
-
-    factor = 1.#torch.exp(-self.priorStd)
-    self.mask_props = factor*self.mask_props
-
-  def forward(self, prediction, logger=None, n_iter=0, plot=False, d_gt=0.):
-    prediction = prediction.view(prediction.shape[0],self.J,-1)
-    dists = compute_distances(prediction, eps=self.eps)
-
-    mse = self.norm((dists-d_gt)*(1.-self.eyeJ),1.)/(1-self.eyeJ).sum()
-
-    return mse.mean()
-
-
-
 
 ##############################
 #### Weighted MDS, SMACOF ####
 ##############################
 class PriorToDistanceSMACOF(PriorToDistanceConsistencyCriterion):
-  def __init__(self, Mean, Std, Corr, norm = 'frobenius', std_weight = False, J=10, eps = 10**(-4), cuda=True):
-    super(PriorToDistanceSMACOF, self).__init__(Mean, Std, norm, std_weight, J, eps, cuda)
+  def __init__(self, Mean, Std, DMean, DStd, Corr, norm = 'frobenius', std_weight = False, J=10, eps = 10**(-4), cuda=True):
+    super(PriorToDistanceSMACOF, self).__init__(Mean, Std, DMean, DStd, norm, std_weight, J, eps, cuda)
 
     self.eyeK = torch.eye(3).unsqueeze(0).float()
     self.dists_mask = torch.FloatTensor(1,self.J,self.J).zero_()
@@ -234,10 +222,11 @@ class PriorToDistanceSMACOF(PriorToDistanceConsistencyCriterion):
 	self.eyeK = self.eyeK.cuda()
 	self.dists_mask = self.dists_mask.cuda()
 
+
     if Corr is not None:
-	    factor = torch.exp((torch.abs(Corr*T))).view(1,self.J,self.J,self.J,self.J)#1.#torch.exp(-self.priorStd)
+	    factor = torch.exp((torch.abs(Corr))).view(1,self.J,self.J,self.J,self.J)#1.#torch.exp(-self.priorStd)
 	    factor = torch.autograd.Variable(factor.cuda())
-	    self.normalizer = factor*self.mask_props*self.adjacency + self.mask_props_self
+	    self.normalizer = factor*self.mask_props + self.mask_props_self
 	    self.normalizer = self.normalizer/(self.normalizer.sum(-1).sum(-1).view(1,self.J,self.J,1,1))
 
 
@@ -357,26 +346,43 @@ class PriorToDistanceSMACOF(PriorToDistanceConsistencyCriterion):
 
 
 class PriorToDistanceObjSMACOF(PriorToDistanceSMACOF):
-  def __init__(self, Mean, Std, norm = 'frobenius', std_weight = False, J=10, eps = 10**(-4), cuda=True):
-    super(PriorToDistanceObjSMACOF, self).__init__(Mean, Std, Corr, norm, std_weight, J, eps, cuda)
+  def __init__(self, Mean, Std, DMean, DStd, Corr, norm = 'frobenius', std_weight = False, J=10, eps = 10**(-4), cuda=True):
+    super(PriorToDistanceObjSMACOF, self).__init__(Mean, Std, DMean, DStd, Corr, norm, std_weight, J, eps, cuda)
 
   def forward(self, prediction, logger=None, n_iter=0, plot=False, dt=None):
     prediction = prediction.view(prediction.shape[0],self.J,-1)
     dists = compute_distances(prediction, eps=self.eps)
+
     props = compute_proportions(dists, eps=self.eps).view(dists.shape[0],self.J,self.J,self.J,self.J)
 
-    gt_dists = self.compute_gt(dists)*self.adjacency.view(1,self.J,self.J)
-    gt_dists = (gt_dists+gt_dists.permute(0,2,1))/2.
-    error = self.compute_smacof(prediction, dists*self.adjacency.view(1,self.J,self.J),  gt_dists)
+    gt_dists = self.compute_gt(dists)*(1.-self.eyeJ)
+    #gt_dists = (gt_dists+gt_dists.permute(0,2,1))/2.
+    error = self.compute_smacof(prediction, dists,  gt_dists)/self.J
+
+    return error.mean()
+
+
+
+class DistanceObjSMACOF(PriorToDistanceSMACOF):
+  def __init__(self, Mean, Std, DMean, DStd, Corr, norm = 'frobenius', std_weight = False, J=10, eps = 10**(-4), cuda=True):
+    super(DistanceObjSMACOF, self).__init__(Mean, Std, DMean, DStd, Corr, norm, std_weight, J, eps, cuda)
+
+  def forward(self, prediction, logger=None, n_iter=0, plot=False, dt=None):
+    prediction = prediction.view(prediction.shape[0],self.J,-1)
+    dists = compute_distances(prediction, eps=self.eps)*(1-self.eyeJ)
+
+    error = self.compute_smacof(prediction, dists, dt)/self.J
 
     return error.mean()
 
 
 
 
+
+
 class PriorToDistanceWeightedSMACOF(PriorToDistanceSMACOF):
-  def __init__(self, Mean, Std, Corr, norm = 'frobenius', std_weight = False, J=10, eps = 10**(-4), cuda=True,T=1.):
-    super(PriorToDistanceWeightedCorrSMACOF, self).__init__(Mean, Std, Corr, norm, std_weight, J, eps, cuda)
+  def __init__(self, Mean, Std, DMean, DStd, Corr, norm = 'frobenius', std_weight = False, J=10, eps = 10**(-4), cuda=True,T=1.):
+    super(PriorToDistanceWeightedCorrSMACOF, self).__init__(Mean, Std, DMean, DStd, Corr, norm, std_weight, J, eps, cuda)
 
   def forward(self, prediction, logger=None, n_iter=0, plot=False, dt=None):
     prediction = prediction.view(prediction.shape[0],self.J,-1)
@@ -394,17 +400,17 @@ class PriorToDistanceWeightedSMACOF(PriorToDistanceSMACOF):
 #### Weighted MDS, SMACOF ####
 ##############################
 class PriorToDistanceSupervisedSMACOF(PriorToDistanceSMACOF):
-  def __init__(self, Mean, Std, Corr, norm = 'frobenius', std_weight = False, J=10, eps = 10**(-4), cuda=True):
-    super(PriorToDistanceSupervisedSMACOF, self).__init__(Mean, Std, Corr, norm, std_weight, J, eps, cuda)
+  def __init__(self, Mean, Std, DMean, DStd, Corr, norm = 'frobenius', std_weight = False, J=10, eps = 10**(-4), cuda=True):
+    super(PriorToDistanceSupervisedSMACOF, self).__init__(Mean, Std, DMean, DStd, Corr, norm, std_weight, J, eps, cuda)
 
   def forward(self, prediction, logger=None, n_iter=0, plot=False, dt=0.):
     prediction = prediction.view(prediction.shape[0],self.J,-1)
     dists = compute_distances(prediction, eps=self.eps)
-
-    gt_dists = self.compute_gt(dists)#*self.adjacency.view(1,self.J,self.J)
+    gt_dists = self.compute_gt(dists)*(1.-self.eyeJ)
+    gt_dists = (gt_dists+gt_dists.permute(0,2,1))/2.
     X = self.iterate_smacof(prediction, gt_dists).detach()
     error = self.norm(X-prediction)/self.J
-    return error.mean()#X.view(X.shape[0],-1)
+    return error.mean()
 
 
 
@@ -426,12 +432,18 @@ def get_priors_from_file(path, device='cuda', eps=10**(-6)):
 	mean = torch.from_numpy(mean).float()
 	std = torch.from_numpy(std).float()
 
+	mean_d = dists.mean(0)
+	std_d = dists.std(0)
+
+	mean_d = torch.from_numpy(mean_d).float()
+	std_d = torch.from_numpy(std_d).float()
+
 	correlation = torch.from_numpy(correlation).float()
 
 	if device=='cuda':
-		return mean.cuda(), std.cuda(), correlation#.cuda()
+		return mean.cuda(), std.cuda(), mean_d.cuda(), std_d.cuda(),correlation#.cuda()
 
-	return mean, std, correlation
+	return mean, std, mean_d, std_d, correlation
 
 
 
@@ -454,8 +466,21 @@ def frobenius(x):
 
 
 def l1(x,w=1):
+	x=x.view(x.shape[0],-1)
 	return torch.norm(x*w,p=1,dim=-1)
 
 
+def cast_dists(r,J=10,cuda=True):
+	x = torch.FloatTensor(r.shape[0],J,J).zero_() 
+	if cuda:
+		x = x.cuda()
+
+	c = 0
+	for i in range(J):
+		for j in range(i+1,J):
+			x[:,i,j] = r.data[:,c]
+			x[:,j,i] = r.data[:,c]
+			c+=1
+	return torch.autograd.Variable(x)
 
 

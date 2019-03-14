@@ -8,12 +8,12 @@ RUNS=$6
 BN=$7
 NAME=$8
 FOLDER=$9
-TEMPERATURE=${10}
+NORM=${10}
 
 echo 'Temperature ' $TEMPERATURE
 
 echo $NAME
 echo $BN
-python main_vis.py -expID "$NAME"_dataset="$DATASET"_epochs="$EPOCHS"_step="$STEP"_lr="$LR"_views="$VIEWS"_bn="$BN" -loadModel ../models/ModelNet120.tar -propsFile ../priors/GT-training-source-props.npy -targetDataset $DATASET -LR=$LR -logDir ../logs/$FOLDER/"$NAME"_dataset="$DATASET"_epochs="$EPOCHS"_step="$STEP"_lr="$LR"_views="$VIEWS"_bn="$BN"_T="$TEMPERATURE" -eps=0.000001 -lossNorm='l2' -runs=$RUNS -epochs=$EPOCHS -dropLR=$STEP -nViews=$VIEWS -batch_norm=$BN -temperature=$TEMPERATURE
+python main_vis.py -expID "$NAME"_dataset="$DATASET"_epochs="$EPOCHS"_step="$STEP"_lr="$LR"_views="$VIEWS"_bn="$BN" -loadModel ../models/ModelNet120.tar -propsFile ../priors/GT-training-source-props.npy -targetDataset $DATASET -LR=$LR -logDir ../logs/$FOLDER/"$NAME"_dataset="$DATASET"_epochs="$EPOCHS"_step="$STEP"_lr="$LR"_views="$VIEWS"_bn="$BN"_N="$NORM" -eps=0.000001 -lossNorm=$NORM -runs=$RUNS -epochs=$EPOCHS -dropLR=$STEP -nViews=$VIEWS -batch_norm=$BN
 
 

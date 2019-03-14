@@ -46,6 +46,8 @@ class DomainClassifier(nn.Module):
         return x
 
 
+
+
     def _make_layer(self, block, inplanes, planes, blocks, stride=1):
 		downsample = None
 		if stride != 1 or inplanes != planes * block.expansion:
@@ -60,6 +62,23 @@ class DomainClassifier(nn.Module):
 		    layers.append(block(inplanes, planes))
 
 		return nn.Sequential(*layers)
+
+
+class DistanceProjector(nn.Module):
+
+    def __init__(self, inplanes, outplanes):
+        super(DistanceProjector, self).__init__()
+        self.fc = nn.Linear(inplanes, outplanes)
+
+        for m in self.modules():
+            if isinstance(m, nn.Linear):
+                nn.init.normal(m.weight, 0,0.001)
+
+    def forward(self, x):
+	x = self.fc(x)
+        return x
+
+
 
 class ResNet_ADDA(resnet.ResNet):
 

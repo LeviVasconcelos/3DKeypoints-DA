@@ -1,5 +1,5 @@
 #!/bin/bash
-./train_all_datasets.sh 1 smacof_obj_unsup_correlation 5 smacof-based 0.0002 1.
-./train_all_datasets.sh 1 smacof_obj_unsup_correlation 5 smacof-based 0.0002 2.
-./train_all_datasets.sh 1 smacof_obj_unsup_correlation 5 smacof-based 0.0005 2.
-./train_all_datasets.sh 1 smacof_obj_unsup_correlation 5 smacof-based 0.0002 0.1
+./train_all_datasets.sh 1 dists_l2_r5 5 checks 0.0001 l2
+./train_all_datasets.sh 1 dists_l1 5 checks 0.0001 l1
+./train_all_datasets.sh 1 dists_frob 5 checks 0.0001 frobenius
+

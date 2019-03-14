@@ -10,6 +10,7 @@ import torch.utils.data
 import torchvision.datasets as datasets
 
 import layers.PriorConsistencyCriterion as criterion
+from models.ADDAResNet import DistanceProjector
 
 from tensorboardX import SummaryWriter
 
@@ -24,6 +25,8 @@ from train_with_priors import train, validate, test
 from optim_latent import initLatent, stepLatent, getY
 from model import getModel
 from utils.utils import collate_fn_cat
+
+from layers.prior_generator import compute_distances
 
 from datasets.chairs_modelnet import ChairsModelNet as SourceDataset
 args = opts().parse()
@@ -58,8 +61,8 @@ def main():
 
 
 	  # Init priors:
-	  Mean,Std,Corr = criterion.get_priors_from_file(args.propsFile)
-	  prior_loss = criterion.PriorConsistencyCriterion(Mean,Std,norm = args.lossNorm, std_weight = args.weightedNorm, eps=args.eps)
+	  Mean,Std,DMean, DStd, Corr = criterion.get_priors_from_file(args.propsFile)
+
 
 	  # Init loaders
 	  valSource_dataset = SourceDataset('test', ref.nValViews)
@@ -89,13 +92,15 @@ def main():
 	      num_workers=args.workers if not args.test else 1, pin_memory=True, collate_fn=collate_fn_cat)
 
 
+	  prior_loss = criterion.DistanceObjSMACOF(Mean,Std,DMean, DStd, Corr, norm = args.lossNorm, std_weight = args.weightedNorm, eps=args.eps)
 
-	  valSource_mpjpe, valSource_loss, valSource_unSuploss = validate(args, 'Source', valSource_loader, model, prior_loss, 0)
-	  valTarget_mpjpe, valTarget_loss, valTarget_unSuploss = validate(args, 'Target', valTarget_loader, model, prior_loss, 0)
+	  valSource_mpjpe, valSource_shape,  valSource_loss, valSource_unSuploss = validate(args, 'Source', valSource_loader, model, prior_loss, 0)
+	  valTarget_mpjpe, valTarget_shape, valTarget_loss, valTarget_unSuploss = validate(args, 'Target', valTarget_loader, model, prior_loss, 0, plot_img=True, logger=logger)
 	  logger.add_scalar('val/source-accuracy', valSource_mpjpe, 0)
 	  logger.add_scalar('val/target-accuracy', valTarget_mpjpe, 0)
 
 	  logger.add_scalar('val/target-accuracy', valTarget_mpjpe, 0)
+	  logger.add_scalar('val/target-accuracy-shape', valTarget_shape, 0)
 	    
 	  logger.add_scalar('val/source-regr-loss', valSource_loss, 0)
 	  logger.add_scalar('val/target-regr-loss', valTarget_loss, 0)
@@ -108,17 +113,21 @@ def main():
 	  for epoch in range(1, args.epochs + 1):
 	    adjust_learning_rate(optimizer, epoch, args.dropLR)
 	    train(args, [trainTarget_loader], model, prior_loss, args.batch_norm, logger, optimizer, epoch-1)
-	    valSource_mpjpe, valSource_loss, valSource_unSuploss = validate(args, 'Source', valSource_loader, model, prior_loss, epoch)
-	    valTarget_mpjpe, valTarget_loss, valTarget_unSuploss = validate(args, 'Target', valTarget_loader, model, prior_loss, epoch)
 
 	    if epoch%2==0:
-		    logger.add_scalar('val/source-accuracy', valSource_mpjpe, epoch)
-		    logger.add_scalar('val/target-accuracy', valTarget_mpjpe, epoch)
 
-		    logger.add_scalar('val/source-regr-loss', valSource_loss, epoch)
+
+	            valTarget_mpjpe, valTarget_shape, valTarget_loss, valTarget_unSuploss = validate(args, 'Target', valTarget_loader, model, prior_loss, epoch, plot_img=True, logger=logger)
+
+		    if epoch%5==0:
+				   valSource_mpjpe, valSource_shape, valSource_loss, valSource_unSuploss = validate(args, 'Source', valSource_loader, model, prior_loss, epoch)
+		    		   logger.add_scalar('val/source-accuracy', valSource_mpjpe, epoch)
+		    		   logger.add_scalar('val/source-prior-loss', valSource_unSuploss, epoch)
+	    			   logger.add_scalar('val/source-regr-loss', valSource_loss, epoch)
+
+		    logger.add_scalar('val/target-accuracy', valTarget_mpjpe, epoch)
+	  	    logger.add_scalar('val/target-accuracy-shape', valTarget_shape, epoch)
 		    logger.add_scalar('val/target-regr-loss', valTarget_loss, epoch)
-		    
-		    logger.add_scalar('val/source-prior-loss', valSource_unSuploss, epoch)
 		    logger.add_scalar('val/target-prior-loss', valTarget_unSuploss, epoch)
 	    
 	    if epoch % 10 == 0:
@@ -132,6 +141,19 @@ def main():
 	  print('Training endend')
 	  logger.close()
 
+
+def cast_dists(x,J=10,cuda=True):
+	r = torch.FloatTensor(x.shape[0],J*(J-1)/2).zero_() 
+	if cuda:
+		r = r.cuda()
+
+	c = 0
+	for i in range(J):
+		for j in range(i+1,J):
+			r[:,c] = x.data[:,i,j]
+			c+=1
+	return torch.autograd.Variable(r)
+	
 def adjust_learning_rate(optimizer, epoch, dropLR):
   """Sets the learning rate to the initial LR decayed by 10 every 30 epochs"""
   lr = args.LR * (0.1 ** (epoch // dropLR))
