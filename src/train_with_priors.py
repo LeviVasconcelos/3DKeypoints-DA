@@ -115,6 +115,79 @@ def train_step(args, split, epoch, loader, model, loss, update_bn=True, logger=N
   return np.array(prior_loss).mean()
 
 
+def train_step_fusion(args, split, epoch, loader, model, loss, update_bn=True, logger=None, optimizer = None, M = None, f = None, nViews=ref.nViews):
+  losses, mpjpe, mpjpe_r = AverageMeter(), AverageMeter(), AverageMeter()
+  viewLosses, shapeLosses, supLosses = AverageMeter(), AverageMeter(), AverageMeter()
+  
+  prior_loss = []
+
+  if update_bn>0:
+	print('Epoch: ' + str(epoch+1)+ ': unsupervised training with BN')
+  	model.train()
+  else:
+	print('Epoch: ' + str(epoch+1)+ ': unsupervised training without BN')
+	model.eval()
+
+  idx_0 = len(loader)*epoch
+  regressionCriterion = nn.MSELoss()
+  for i, (input, target, meta) in enumerate(loader):
+    ((sourceInput, sourceLabel, sourceMeta), (targetInput, targetLabel, targetMeta)) = unpack_splitted((input, target, meta))
+    source_output, target_output = torch.Tensor(), torch.Tensor()
+    source_loss_value, target_loss_value = 0, 0
+    if __DEBUG:
+      print "input shape:" + str(input.size())
+      print "target shape:" + str(target.size())
+      print "meta shape:" + str(meta.size())
+    if split == "train":
+          optimizer.zero_grad()
+    if (sourceInput.nelement() > 0):
+          sourceInput_var = torch.autograd.Variable(sourceInput.cuda())
+          sourceLabel_var = torch.autograd.Variable(sourceLabel)
+          source_output = model(sourceInput_var)
+          source_loss = regressionCriterion(source_output, sourceLabel_var)
+          if split == 'train':
+                source_loss.backward()
+          source_loss_value = source_loss.data[0]
+          
+    if (targetInput.nelement() > 0):
+          targetInput_var = torch.autograd.Variable(targetInput.cuda())
+          targetLabel_var = torch.autograd.Variable(targetLabel)
+          target_output = model(targetInput_var)
+          target_loss = cr_loss = loss(target_output, logger, i==0, dt=dt)
+          if split == 'train':
+                target_loss.backward()
+          target_loss_value = target_loss.data[0]
+    if split == 'train':
+          optimizer.step()
+          
+    input_ = torch.cat((sourceInput, targetInput), 0)
+    target_ = torch.cat((sourceLabel, targetLabel), 0)
+    if (source_output.nelement() > 0 and target_output.nelement() > 0):
+          output_ = torch.cat((source_output, target_output), 0)
+    else:
+          output_ = source_output if source_output.nelement() > 0 else target_output
+    if (sourceMeta.nelement() > 0 and targetMeta.nelement() > 0):
+          meta_ = torch.cat((sourceMeta, targetMeta), 0)
+    else:
+          meta_ = sourceMeta if sourceMeta.nelement() > 0 else targetMeta
+    mpjpe_this = accuracy(output_.data, target_, meta_)
+    mpjpe_r_this = accuracy_dis(output_.data, target_, meta_)
+    source_shapeLoss = shapeConsistency(source_output.data, sourceMeta, 1, M, split = split)
+    target_shapeLoss = shapeConsistency(target_output.data, targetMeta, nViews, M, split = split)
+    shapeLoss = source_shapeLoss + target_shapeLoss
+
+    losses.update(source_loss_value + target_loss_value, input_.size(0))
+    shapeLosses.update(shapeLoss, input_.size(0))
+    mpjpe.update(mpjpe_this, input_.size(0))
+    mpjpe_r.update(mpjpe_r_this, input_.size(0))
+    
+    
+    Bar.suffix = '{split:10}: [{0:2}][{1:3}/{2:3}] | Total: {total:} | ETA: {eta:} | Loss {loss.avg:.6f} | shapeLoss {shapeLoss.avg:.6f} | AE {mpjpe.avg:.6f} | ShapeDis {mpjpe_r.avg:.6f}'.format(epoch, i, len_loader, total=bar.elapsed_td, eta=bar.eta_td, loss=losses, mpjpe=mpjpe, split = split, shapeLoss = shapeLosses, mpjpe_r = mpjpe_r)
+    bar.next()
+      
+  bar.finish()
+  return mpjpe.avg, losses.avg, shapeLosses.avg
+  #return np.array(prior_loss).mean()
 
 
 def eval_step(args, split, epoch, loader, model, loss, update=True, optimizer = None, M = None, f = None, nViews=ref.nViews, plot_img = False, logger = None):

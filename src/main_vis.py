@@ -81,6 +81,11 @@ def main():
 	  train_dataset = Fusion(SourceDataset, TargetDataset, nViews = args.nViews, targetRatio = args.targetRatio, totalTargetIm = args.totalTargetIm)
 	  trainTarget_dataset = train_dataset.targetDataset
 	  
+      fusion_loader = torch.utils.data.DataLoader(
+                  fusion_dataset, batch_size=args.batchSize, 
+                  shuffle=not args.test, num_workers=args.workers if not args.test else 1, 
+                  pin_memory=False, collate_fn=collate_fn_cat)
+
 	  trainTarget_loader = torch.utils.data.DataLoader(
 	      trainTarget_dataset, batch_size=args.batchSize, shuffle=True,
 	      num_workers=args.workers if not args.test else 1, pin_memory=True, collate_fn=collate_fn_cat)
@@ -112,7 +117,8 @@ def main():
 	  print 'Start training...'
 	  for epoch in range(1, args.epochs + 1):
 	    adjust_learning_rate(optimizer, epoch, args.dropLR)
-	    train(args, [trainTarget_loader], model, prior_loss, args.batch_norm, logger, optimizer, epoch-1)
+        loader = trainTarget_loader if not args.fuse_datasets else fusion_loader
+	    train(args, [loader], model, prior_loss, args.batch_norm, logger, optimizer, epoch-1)
 
 	    if epoch%2==0:
 
