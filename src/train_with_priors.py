@@ -81,7 +81,7 @@ def compute_images(img, pred, gt):
 
 
 
-def train_step(args, split, epoch, loader, model, loss, update_bn=True, logger=None, optimizer = None, M = None, f = None, nViews=ref.nViews):
+def train_step(args, split, epoch, loader, model, loss, update_bn=True, logger=None, optimizer = None, M = None, f = None, nViews=ref.nViews,device='cuda'):
   losses, mpjpe, mpjpe_r = AverageMeter(), AverageMeter(), AverageMeter()
   viewLosses, shapeLosses, supLosses = AverageMeter(), AverageMeter(), AverageMeter()
   
@@ -97,27 +97,27 @@ def train_step(args, split, epoch, loader, model, loss, update_bn=True, logger=N
   idx_0 = len(loader)*epoch
 
   for i, (input, target, _) in enumerate(loader):
-    target_var = torch.autograd.Variable(target.cuda())
+    target_var = target.to(device)
     dt = compute_distances(target_var)
-    input_var = torch.autograd.Variable(input.cuda())
+    input_var = input.to(device)
     output = model(input_var)
     cr_loss = loss(output, dt=dt).mean()
 
-    prior_loss.append(cr_loss.data[0])
+    prior_loss.append(cr_loss.item())
 
 
     if split == 'train':
       optimizer.zero_grad()
       cr_loss.backward() 
       optimizer.step()
-      logger.add_scalar('train/prior-loss', cr_loss.data[0], idx_0+i)
+      logger.add_scalar('train/prior-loss', cr_loss.item(), idx_0+i)
 
   return np.array(prior_loss).mean()
 
 
 
 
-def eval_step(args, split, epoch, loader, model, loss, update=True, optimizer = None, M = None, f = None, nViews=ref.nViews, plot_img = False, logger = None):
+def eval_step(args, split, epoch, loader, model, loss, update=True, optimizer = None, M = None, f = None, nViews=ref.nViews, plot_img = False, logger = None,device='cuda'):
   losses, mpjpe, mpjpe_r = AverageMeter(), AverageMeter(), AverageMeter()
   viewLosses, shapeLosses, supLosses = AverageMeter(), AverageMeter(), AverageMeter()
   
@@ -131,18 +131,18 @@ def eval_step(args, split, epoch, loader, model, loss, update=True, optimizer = 
   idx_0 = len(loader)*epoch
 
   for i, (input, target, meta) in enumerate(loader):
-    input_var = torch.autograd.Variable(input.cuda(),volatile=True)
-    target_var = torch.autograd.Variable(target.cuda(),volatile=True)
+    input_var = input.to(device)
+    target_var = target.to(device)
     output = model(input_var)
 
     cr_regr_loss = ((output - target_var.view(target_var.shape[0],-1)) ** 2).sum() / ref.J / 3 / input.shape[0]
 
-
     current_acc = accuracy(output.data, target, meta)
     current_acc_shape = accuracy_dis(output.data, target, meta)
-    accuracy_this.append(current_acc)
-    accuracy_shape.append(current_acc_shape)
-    regr_loss.append(cr_regr_loss.data[0])
+    accuracy_this.append(current_acc.item())
+    accuracy_shape.append(current_acc_shape.item())
+    
+    regr_loss.append(cr_regr_loss.item())
     dt = compute_distances(target_var)
     cr_loss = loss(output, dt=dt).mean()
     if plot_img and i<10:
@@ -154,8 +154,8 @@ def eval_step(args, split, epoch, loader, model, loss, update=True, optimizer = 
  		logger.add_image('Image 2D ' +str(i), (np.asarray(Image.open(p2d))).transpose(2,0,1), epoch)
  		logger.add_image('Image 3D ' +str(i), (np.asarray(Image.open(p3d))).transpose(2,0,1), epoch)
 
+    prior_loss.append(cr_loss.item())
 
-    prior_loss.append(cr_loss.data[0])
   return np.array(accuracy_this).mean(),np.array(accuracy_shape).mean(), np.array(regr_loss).mean(), np.array(prior_loss).mean()
 
 

@@ -20,7 +20,7 @@ EDGES = [(0,1),(0,2),(1,3),(2,3),(2,4),(2,6),(3,5),(3,7),(4,5),(4,8),(5,9)]
 
 
 class AbstractPriorLoss(nn.Module):
-  def __init__(self, path, J=10, eps = 10**(-6), cuda=True, norm='l2', distances_refinement=None):
+  def __init__(self, path, J=10, eps = 10**(-6), device='cuda', norm='l2', distances_refinement=None):
     super(AbstractPriorLoss, self).__init__()
     Mean,Std,DMean, DStd, Corr = get_priors_from_file(path)
 
@@ -28,17 +28,10 @@ class AbstractPriorLoss(nn.Module):
     self.eps = eps
 
     # Init priors holders
-    self.priorMean = torch.autograd.Variable(Mean,requires_grad=False)
-    self.priorMean=self.priorMean.view(1,self.J, self.J, self.J,self.J)
-
-    self.priorStd = torch.autograd.Variable(Std,requires_grad=False)
-    self.priorStd=self.priorStd.view(1,self.J, self.J, self.J,self.J)
-
-    self.distMean = torch.autograd.Variable(DMean,requires_grad=False)
-    self.distMean = self.distMean.view(1,self.J, self.J)
-
-    self.distStd = torch.autograd.Variable(DStd,requires_grad=False)
-    self.distStd=self.distStd.view(1,self.J, self.J)
+    self.priorMean=Mean.view(1,self.J, self.J, self.J,self.J)
+    self.priorStd=Std.view(1,self.J, self.J, self.J,self.J)
+    self.distMean = DMean.view(1,self.J, self.J)
+    self.distStd=DStd.view(1,self.J, self.J)
 
 
 
@@ -71,22 +64,14 @@ class AbstractPriorLoss(nn.Module):
 					mask_no_self_connections[0,i,j,l,m]=0.0
 					
 
-    self.eyeJ = torch.autograd.Variable(self.eyeJ)
-    self.eyeJ2 = torch.autograd.Variable(self.eyeJ2)
-    
-    self.upper_triangular = torch.autograd.Variable(self.upper_triangular,requires_grad=False)
-    self.adjacency = torch.autograd.Variable(adjacency)
-    self.mask_no_self_connections = torch.autograd.Variable(mask_no_self_connections)
-    self.self_keypoint_props = torch.autograd.Variable(self_keypoint_props)
 
-    if cuda:
-	self.upper_triangular = self.upper_triangular.cuda()
-	self.adjacency = self.adjacency.cuda()
-	self.mask_no_self_connections = self.mask_no_self_connections.cuda()
-	self.self_keypoint_props = self.self_keypoint_props.cuda()
+    self.upper_triangular = self.upper_triangular.to(device)
+    self.adjacency = adjacency.to(device)
+    self.mask_no_self_connections = mask_no_self_connections.to(device)
+    self.self_keypoint_props = self_keypoint_props.to(device)
 
-	self.eyeJ2 = self.eyeJ2.cuda()
-	self.eyeJ = self.eyeJ.cuda()
+    self.eyeJ2 = self.eyeJ2.to(device)
+    self.eyeJ = self.eyeJ.to(device)
 
     if distances_refinement is None:
 	print('Initializing a refiner as identity')
@@ -95,11 +80,10 @@ class AbstractPriorLoss(nn.Module):
 	print('Initializing a distances refiner')
 	self.refiner=(self.refine_distances)
 	factor = torch.exp((torch.abs(Corr))).view(1,self.J,self.J,self.J,self.J)
-        factor = torch.autograd.Variable(factor.cuda())
+        factor = factor.to(device)
 	self.normalizer = factor*self.mask_no_self_connections + self.self_keypoint_props
 	self.normalizer = self.normalizer/(self.normalizer.sum(-1).sum(-1).view(1,self.J,self.J,1,1))
-	if cuda:
-		self.normalizer = self.normalizer.cuda()
+	self.normalizer = self.normalizer.to(device)
 
     # Init norm values
     if norm=='l2':
@@ -132,8 +116,8 @@ class AbstractPriorLoss(nn.Module):
 
 
 class PriorRegressionCriterion(AbstractPriorLoss):
-  def __init__(self, path, J=10, eps = 10**(-6), cuda=True, norm='l2', distances_refinement=None, obj='props'):
-    super(PriorRegressionCriterion, self).__init__(path, J, eps, cuda, norm, distances_refinement)
+  def __init__(self, path, J=10, eps = 10**(-6), device='cuda', norm='l2', distances_refinement=None, obj='props'):
+    super(PriorRegressionCriterion, self).__init__(path, J, eps, device, norm, distances_refinement)
 
     if obj == 'props':
 	self.forward=(self.forward_props)
@@ -181,8 +165,8 @@ class PriorRegressionCriterion(AbstractPriorLoss):
 ##############################
 
 class PriorSMACOFCriterion(AbstractPriorLoss):
-  def __init__(self, path, J=10, eps = 10**(-6), cuda=True, norm='l2', distances_refinement=None, iterate=False):
-    super(PriorSMACOFCriterion, self).__init__(path, J, eps, cuda, norm, distances_refinement)
+  def __init__(self, path, J=10, eps = 10**(-6), device='cuda', norm='l2', distances_refinement=None, iterate=False):
+    super(PriorSMACOFCriterion, self).__init__(path, J, eps, device, norm, distances_refinement)
 
     self.eyeK = torch.eye(3).unsqueeze(0).float()
     self.dists_mask = torch.FloatTensor(1,self.J,self.J).zero_()
@@ -193,12 +177,9 @@ class PriorSMACOFCriterion(AbstractPriorLoss):
 		    if j>i:
 			self.dists_mask[0,i,j]=1.
 
-    self.eyeK = torch.autograd.Variable(self.eyeK)
-    self.dists_mask = torch.autograd.Variable(self.dists_mask)
 
-    if cuda:
-	self.eyeK = self.eyeK.cuda()
-	self.dists_mask = self.dists_mask.cuda()
+    self.eyeK = self.eyeK.to(device)
+    self.dists_mask = self.dists_mask.to(device)
 
     if iterate:
 	self.forward = self.forward_iterative
@@ -356,10 +337,8 @@ def get_priors_from_file(path, device='cuda', eps=10**(-6)):
 
 	correlation = torch.from_numpy(correlation).float()
 
-	if device=='cuda':
-		return mean.cuda(), std.cuda(), mean_d.cuda(), std_d.cuda(),correlation#.cuda()
+	return mean.to(device), std.to(device), mean_d.to(device), std_d.to(device),correlation#.to(device)
 
-	return mean, std, mean_d, std_d, correlation
 
 
 
@@ -377,7 +356,7 @@ def frobenius(x):
 
 	x_transposed = x.permute(0,2,1) # B x K x D
 	xTx = torch.bmm(x_transposed,x)
-	eye = torch.autograd.Variable(torch.eye(x.shape[1]).unsqueeze(0).float()).cuda()
+	eye = torch.eye(x.shape[1]).unsqueeze(0).float().to(x.device)
 
 	return (xTx*eye).sum(-1).sum(-1)
 
@@ -387,4 +366,24 @@ def l1(x,w=1):
 	return torch.norm(x*w,p=1,dim=-1)
 
 
+def compute_rotation_loss(x,y):
+	rot_loss = 0.
+	target = torch.eye(x.shape[-1]).unsqueeze(0)
+	diag_0 = torch.diag(torch.Tensor([1.,1.,0]))
+	diag_1 = torch.diag(torch.Tensor([0.,0.,1.]))
+	yTx = torch.bmm(y.permute(0,2,1),x)
+
+	for i in range(x.shape[0]):
+		U,S,Vt = yTx[i].svd()
+
+		xTy = yTx[i].permute(1,0)
+		s = torch.sign(xTy.det())
+		diag_S = diag_0 + diag_1*s
+
+		R = U*diag_S*Vt
+		rot_loss = rot_loss + torch.norm(R-target)
+
+	return rot_loss/x.shape[0]
+	
+	
 
