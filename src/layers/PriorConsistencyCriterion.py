@@ -282,7 +282,6 @@ class PriorSMACOFCriterion(AbstractPriorLoss):
 			X = 1./self.J*torch.bmm(B,X) ##### TODO
 		else:
 			X = 1./self.J*torch.bmm(B,X)  
-			
 	
 	return X
 
@@ -368,9 +367,9 @@ def l1(x,w=1):
 
 def compute_rotation_loss(x,y):
 	rot_loss = 0.
-	target = torch.eye(x.shape[-1]).unsqueeze(0)
-	diag_0 = torch.diag(torch.Tensor([1.,1.,0]))
-	diag_1 = torch.diag(torch.Tensor([0.,0.,1.]))
+	target = torch.eye(x.shape[-1]).unsqueeze(0).to(x.device)
+	diag_0 = torch.diag(torch.Tensor([1.,1.,0])).to(x.device)
+	diag_1 = torch.diag(torch.Tensor([0.,0.,1.])).to(x.device)
 	yTx = torch.bmm(y.permute(0,2,1),x)
 
 	for i in range(x.shape[0]):

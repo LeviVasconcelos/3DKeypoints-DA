@@ -14,6 +14,10 @@ from PIL import Image
 import sys
 import time
 
+from layers.PriorConsistencyCriterion import compute_rotation_loss
+
+import copy
+
 import mpl_toolkits.mplot3d
 from mpl_toolkits.mplot3d import Axes3D
 
@@ -94,23 +98,32 @@ def train_step(args, split, epoch, loader, model, loss, update_bn=True, logger=N
 	print('Epoch: ' + str(epoch+1)+ ': unsupervised training without BN')
 	model.eval()
 
+  old_model = copy.deepcopy(model)
+
+
   idx_0 = len(loader)*epoch
 
   for i, (input, target, _) in enumerate(loader):
     target_var = target.to(device)
     dt = compute_distances(target_var)
     input_var = input.to(device)
+    old_output = old_model(input_var)
+    old_output = old_output.detach()
+
     output = model(input_var)
+
     cr_loss = loss(output, dt=dt).mean()
+    rotation_loss = compute_rotation_loss(old_output.view(input.shape[0],10,3), output.view(input.shape[0],10,3))
 
     prior_loss.append(cr_loss.item())
 
 
-    if split == 'train':
-      optimizer.zero_grad()
-      cr_loss.backward() 
-      optimizer.step()
-      logger.add_scalar('train/prior-loss', cr_loss.item(), idx_0+i)
+    optimizer.zero_grad()
+    total_loss = cr_loss + 0.01*rotation_loss
+    total_loss.backward() 
+    optimizer.step()
+    logger.add_scalar('train/prior-loss', cr_loss.item(), idx_0+i)
+    logger.add_scalar('train/rotation-loss', rotation_loss.item(), idx_0+i)
 
   return np.array(prior_loss).mean()
 
