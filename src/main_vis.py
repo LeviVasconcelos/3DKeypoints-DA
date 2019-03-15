@@ -9,8 +9,7 @@ import torch.optim
 import torch.utils.data
 import torchvision.datasets as datasets
 
-import layers.PriorConsistencyCriterion as criterion
-from models.ADDAResNet import DistanceProjector
+from layers.PriorConsistencyCriterion import PriorRegressionCriterion, PriorSMACOFCriterion
 
 from tensorboardX import SummaryWriter
 
@@ -60,10 +59,6 @@ def main():
 		                      weight_decay=args.weight_decay)
 
 
-	  # Init priors:
-	  Mean,Std,DMean, DStd, Corr = criterion.get_priors_from_file(args.propsFile)
-
-
 	  # Init loaders
 	  valSource_dataset = SourceDataset('test', ref.nValViews)
 	  valTarget_dataset = TargetDataset('test', ref.nValViews)
@@ -92,7 +87,8 @@ def main():
 	      num_workers=args.workers if not args.test else 1, pin_memory=True, collate_fn=collate_fn_cat)
 
 
-	  prior_loss = criterion.DistanceObjSMACOF(Mean,Std,DMean, DStd, Corr, norm = args.lossNorm, std_weight = args.weightedNorm, eps=args.eps)
+	  prior_loss = PriorSMACOFCriterion(args.propsFile, norm = args.lossNorm, distances_refinement=None, iterate=False)
+	  #prior_loss = PriorRegressionCriterion(args.propsFile, norm = args.lossNorm, distances_refinement='daje', obj='props')
 
 	  valSource_mpjpe, valSource_shape,  valSource_loss, valSource_unSuploss = validate(args, 'Source', valSource_loader, model, prior_loss, 0)
 	  valTarget_mpjpe, valTarget_shape, valTarget_loss, valTarget_unSuploss = validate(args, 'Target', valTarget_loader, model, prior_loss, 0, plot_img=True, logger=logger)

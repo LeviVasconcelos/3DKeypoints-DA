@@ -101,7 +101,7 @@ def train_step(args, split, epoch, loader, model, loss, update_bn=True, logger=N
     dt = compute_distances(target_var)
     input_var = torch.autograd.Variable(input.cuda())
     output = model(input_var)
-    cr_loss = loss(output, logger, i==0, dt=dt)
+    cr_loss = loss(output, dt=dt).mean()
 
     prior_loss.append(cr_loss.data[0])
 
@@ -144,7 +144,7 @@ def eval_step(args, split, epoch, loader, model, loss, update=True, optimizer = 
     accuracy_shape.append(current_acc_shape)
     regr_loss.append(cr_regr_loss.data[0])
     dt = compute_distances(target_var)
-    cr_loss = loss(output, logger, plot=i==0,dt=dt)
+    cr_loss = loss(output, dt=dt).mean()
     if plot_img and i<10:
 		img = (input.numpy()[0] * 255).transpose(1, 2, 0).astype(np.uint8)
 		cv2.imwrite('01.png', img)

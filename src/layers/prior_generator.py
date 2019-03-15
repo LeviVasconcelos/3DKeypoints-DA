@@ -10,7 +10,7 @@ import torch.nn as nn
 
 def compute_distances(x, eps=10**(-6)):
     if len(x.shape)==2:
-    	x=x.unsqueeze(0).double()
+    	x=x.unsqueeze(0)
 
 
     # Computes the squared norm of X
@@ -22,9 +22,9 @@ def compute_distances(x, eps=10**(-6)):
 
     x_transposed = x.permute(0,2,1) # B x K x D
     xxT = torch.bmm(x,x_transposed)
-    dists = x_squared_left + x_squared_right - 2*xxT
+    dists = x_squared_left + x_squared_right - 2*xxT +eps
     dists = dists.pow(0.5)
-    return  dists.float() # B x K x K
+    return  dists # B x K x K
 
 
 def replicate_mask(x): # x must be of dimension BxK
