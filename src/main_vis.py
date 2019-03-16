@@ -87,7 +87,7 @@ def main():
 	      num_workers=args.workers if not args.test else 1, pin_memory=True, collate_fn=collate_fn_cat)
 
 
-	  prior_loss = PriorSMACOFCriterion(args.propsFile, norm = args.lossNorm, distances_refinement=None, iterate=False)
+	  prior_loss = PriorSMACOFCriterion(args.propsFile, norm = args.lossNorm, distances_refinement='daje', iterate=False)
 	  #prior_loss = PriorRegressionCriterion(args.propsFile, norm = args.lossNorm, distances_refinement='daje', obj='props')
 
 	  valSource_mpjpe, valSource_shape,  valSource_loss, valSource_unSuploss = validate(args, 'Source', valSource_loader, model, prior_loss, 0)

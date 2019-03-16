@@ -98,32 +98,40 @@ def train_step(args, split, epoch, loader, model, loss, update_bn=True, logger=N
 	print('Epoch: ' + str(epoch+1)+ ': unsupervised training without BN')
 	model.eval()
 
-  old_model = copy.deepcopy(model)
+  #old_model = copy.deepcopy(model)
 
 
   idx_0 = len(loader)*epoch
 
+  
   for i, (input, target, _) in enumerate(loader):
     target_var = target.to(device)
     dt = compute_distances(target_var)
     input_var = input.to(device)
-    old_output = old_model(input_var)
-    old_output = old_output.detach()
+    #old_output = old_model(input_var)
+    #old_output = old_output.detach()
 
     output = model(input_var)
 
-    cr_loss = loss(output, dt=dt).mean()
-    rotation_loss = compute_rotation_loss(old_output.view(input.shape[0],10,3), output.view(input.shape[0],10,3))
+    cr_loss = loss(output, dt=dt)
+    w = torch.exp(-cr_loss*10).detach()
+    mask=(w>0.9).float()
+    w = w*mask
+    cr_loss = (w*cr_loss).sum()/mask.sum()
+    #rotation_loss = compute_rotation_loss(old_output.view(input.shape[0],10,3), output.view(input.shape[0],10,3), w)
 
     prior_loss.append(cr_loss.item())
 
 
     optimizer.zero_grad()
-    total_loss = cr_loss + 0.01*rotation_loss
+    total_loss = cr_loss# + 0.1*rotation_loss
     total_loss.backward() 
     optimizer.step()
     logger.add_scalar('train/prior-loss', cr_loss.item(), idx_0+i)
-    logger.add_scalar('train/rotation-loss', rotation_loss.item(), idx_0+i)
+    #logger.add_scalar('train/rotation-loss', rotation_loss.item(), idx_0+i)
+    logger.add_scalar('train/average_w', w.mean().item(), idx_0+i)
+
+    logger.add_scalar('train/average_mask', mask.mean().item(), idx_0+i)
 
   return np.array(prior_loss).mean()
 

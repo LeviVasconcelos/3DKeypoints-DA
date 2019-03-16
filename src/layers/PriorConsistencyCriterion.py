@@ -99,12 +99,11 @@ class AbstractPriorLoss(nn.Module):
 	return x
 
   def refine_distances(self, x,props):
-	print('refining dists')
 	tiled = x.view(x.shape[0],-1).repeat(1,self.J**2).view(x.shape[0],self.J,self.J,self.J,self.J)
 	return (self.priorMean*tiled*self.normalizer).sum(-1).sum(-1)
 
   def compute_likelihood(self, x):
-	return torch.exp(-torch.pow(x-self.priorMean,2)/(2*self.priorStd.pow(2)))
+	return -(torch.pow(x-self.priorMean,2)/(2*self.priorStd.pow(2))).view(x.shape[0],-1).mean(-1)
 
   def forward(self,x):
 	pass
@@ -186,19 +185,31 @@ class PriorSMACOFCriterion(AbstractPriorLoss):
     else:
 	self.forward = self.forward_objective
 
-  def forward_iterative(self, prediction, dt=None):
+
+
+
+
+  def forward_objective_grad(self, prediction, dt=None):
+
     prediction = prediction.view(prediction.shape[0],self.J,-1)
-    dists=dt
-    if dists is None:
-    	dists = compute_distances(prediction, eps=self.eps)
- 
+    
+    dists = compute_distances(prediction, eps=self.eps)
+    dists.detach_().requires_grad_(True)
+    gt_dists = dists*0.
     props = compute_proportions(dists, eps=self.eps).view(dists.shape[0],self.J,self.J,self.J,self.J)
+    lkl = -self.compute_likelihood(props)
+    for i in range(props.shape[0]):
+    	lkl[i].backward(retain_graph=True)
+	gt_dists[i] = dists[i] + torch.clamp(dists.grad[i],-0.1,0.1)
 
-    diff = (props-self.priorMean)
-    mse = self.norm(diff)
+    gt_dists.detach_()
+    gt_dists=torch.clamp((gt_dists*(1-self.eyeJ)),0)
 
-    return mse.mean()
+    w = torch.ones_like(dists)					##### TODO ######
 
+    error = self.compute_obj(prediction, gt_dists, w)/self.J
+
+    return error
 
 
   def forward_objective(self, prediction, dt=None):
@@ -206,7 +217,7 @@ class PriorSMACOFCriterion(AbstractPriorLoss):
     prediction = prediction.view(prediction.shape[0],self.J,-1)
     gt_dists = dt
 
-    if dt is None:
+    if True:
     	dists = compute_distances(prediction, eps=self.eps)
 	props = compute_proportions(dists, eps=self.eps).view(dists.shape[0],self.J,self.J,self.J,self.J)
 	gt_dists = self.refine_distances(dists,props)*(1.-self.eyeJ)
@@ -311,6 +322,8 @@ class PriorSMACOFCriterion(AbstractPriorLoss):
 
 
 
+	
+
 
 
 ######################
@@ -365,7 +378,7 @@ def l1(x,w=1):
 	return torch.norm(x*w,p=1,dim=-1)
 
 
-def compute_rotation_loss(x,y):
+def compute_rotation_loss(x,y,w):
 	rot_loss = 0.
 	target = torch.eye(x.shape[-1]).unsqueeze(0).to(x.device)
 	diag_0 = torch.diag(torch.Tensor([1.,1.,0])).to(x.device)
@@ -380,7 +393,7 @@ def compute_rotation_loss(x,y):
 		diag_S = diag_0 + diag_1*s
 
 		R = U*diag_S*Vt
-		rot_loss = rot_loss + torch.norm(R-target)
+		rot_loss = rot_loss + w[i]*torch.norm(R-target)
 
 	return rot_loss/x.shape[0]
 	
