@@ -85,7 +85,7 @@ def compute_images(img, pred, gt):
 
 
 
-def train_step(args, split, epoch, loader, model, loss, update_bn=True, logger=None, optimizer = None, M = None, f = None, nViews=ref.nViews,device='cuda'):
+def train_step(args, split, epoch, loader, model, loss, update_bn=True, logger=None, optimizer = None, M = None, f = None, nViews=ref.nViews,device='cuda', threshold = 0.9):
   losses, mpjpe, mpjpe_r = AverageMeter(), AverageMeter(), AverageMeter()
   viewLosses, shapeLosses, supLosses = AverageMeter(), AverageMeter(), AverageMeter()
   
@@ -115,12 +115,20 @@ def train_step(args, split, epoch, loader, model, loss, update_bn=True, logger=N
 
     cr_loss = loss(output, dt=dt)
     w = torch.exp(-cr_loss*10).detach()
-    mask=(w>0.9).float()
+    mask=(w>threshold).float()
+ 
+    logger.add_scalar('train/average_w', w.mean().item(), idx_0+i)
+    logger.add_scalar('train/average_mask', mask.mean().item(), idx_0+i)
     w = w*mask
+    if mask.sum()==0:
+	del cr_loss, output
+	continue
+
     cr_loss = (w*cr_loss).sum()/mask.sum()
     #rotation_loss = compute_rotation_loss(old_output.view(input.shape[0],10,3), output.view(input.shape[0],10,3), w)
 
     prior_loss.append(cr_loss.item())
+
 
 
     optimizer.zero_grad()
@@ -129,9 +137,7 @@ def train_step(args, split, epoch, loader, model, loss, update_bn=True, logger=N
     optimizer.step()
     logger.add_scalar('train/prior-loss', cr_loss.item(), idx_0+i)
     #logger.add_scalar('train/rotation-loss', rotation_loss.item(), idx_0+i)
-    logger.add_scalar('train/average_w', w.mean().item(), idx_0+i)
 
-    logger.add_scalar('train/average_mask', mask.mean().item(), idx_0+i)
 
   return np.array(prior_loss).mean()
 
@@ -182,8 +188,8 @@ def eval_step(args, split, epoch, loader, model, loss, update=True, optimizer = 
 
 
 
-def train(args, train_loader, model, loss, update_bn, logger, optimizer, epoch, nViews=ref.nViews):
-  return train_step(args, 'train', epoch, train_loader[0], model, loss, update_bn, logger, optimizer)
+def train(args, train_loader, model, loss, update_bn, logger, optimizer, epoch, nViews=ref.nViews, threshold = 0.9):
+  return train_step(args, 'train', epoch, train_loader[0], model, loss, update_bn, logger, optimizer, threshold=threshold)
 
 def validate(args, supTag, val_loader, model, loss, epoch,plot_img=False, logger=None):
   return eval_step(args, 'val' + supTag, epoch, val_loader, model,loss,plot_img = plot_img, logger = logger)

@@ -1,5 +1,6 @@
 #!/bin/bash
-./train_all_datasets.sh 1 dists_l2_r5 5 checks 0.0001 l2
-./train_all_datasets.sh 1 dists_l1 5 checks 0.0001 l1
-./train_all_datasets.sh 1 dists_frob 5 checks 0.0001 frobenius
+./train_all_datasets.sh 2 annealed_full_grad 1 test_with_annealing 0.0002 1 0.8
+./train_all_datasets.sh 2 annealed_full_grad 1 test_with_annealing 0.0002 1 0.85
+./train_all_datasets.sh 2 annealed_full_grad 1 test_with_annealing 0.0002 1 0.9
+./train_all_datasets.sh 2 annealed_full_grad 1 test_with_annealing 0.0002 1 0.95
 

@@ -189,7 +189,7 @@ class PriorSMACOFCriterion(AbstractPriorLoss):
 
 
 
-  def forward_objective_grad(self, prediction, dt=None):
+  def forward_objective(self, prediction, dt=None):
 
     prediction = prediction.view(prediction.shape[0],self.J,-1)
     
@@ -200,10 +200,12 @@ class PriorSMACOFCriterion(AbstractPriorLoss):
     lkl = -self.compute_likelihood(props)
     for i in range(props.shape[0]):
     	lkl[i].backward(retain_graph=True)
-	gt_dists[i] = dists[i] + torch.clamp(dists.grad[i],-0.1,0.1)
+	#gt_dists = torch.sign(-dists.grad[i])*0.1*dists + dists
+
+	gt_dists[i] = torch.clamp(dists[i]-dists.grad[i],min=0.,max=torch.max(dists[i]).item())
 
     gt_dists.detach_()
-    gt_dists=torch.clamp((gt_dists*(1-self.eyeJ)),0)
+    gt_dists=gt_dists*(1-self.eyeJ)
 
     w = torch.ones_like(dists)					##### TODO ######
 
@@ -212,13 +214,13 @@ class PriorSMACOFCriterion(AbstractPriorLoss):
     return error
 
 
-  def forward_objective(self, prediction, dt=None):
+  def forward_objective_gt(self, prediction, dt=None):
 
     prediction = prediction.view(prediction.shape[0],self.J,-1)
     gt_dists = dt
 
     if True:
-    	dists = compute_distances(prediction, eps=self.eps)
+    	dists = compute_distances(prediction, eps=self.eps).detach()
 	props = compute_proportions(dists, eps=self.eps).view(dists.shape[0],self.J,self.J,self.J,self.J)
 	gt_dists = self.refine_distances(dists,props)*(1.-self.eyeJ)
 
@@ -334,7 +336,7 @@ def get_priors_from_file(path, device='cuda', eps=10**(-6)):
 	priors = np.load(path)
 	dists = np.load(path.replace('props','distances'))
 
-	correlation = np.corrcoef(dists.reshape(-1,priors.shape[0]))
+	correlation = np.corrcoef(dists.reshape(priors.shape[0],-1).transpose())
 	mean = priors.mean(0)
 	std = priors.std(0)
 

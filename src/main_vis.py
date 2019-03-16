@@ -108,7 +108,7 @@ def main():
 	  print 'Start training...'
 	  for epoch in range(1, args.epochs + 1):
 	    adjust_learning_rate(optimizer, epoch, args.dropLR)
-	    train(args, [trainTarget_loader], model, prior_loss, args.batch_norm, logger, optimizer, epoch-1)
+	    train(args, [trainTarget_loader], model, prior_loss, args.batch_norm, logger, optimizer, epoch-1, threshold = args.threshold)
 
 	    if epoch%2==0:
 
