@@ -20,7 +20,7 @@ from datasets.Fusion import Fusion
 
 from utils.logger import Logger
 from opts import opts
-from train_with_priors import train, validate, test
+from train_with_priors import train, validate, test, train_fusion
 from optim_latent import initLatent, stepLatent, getY
 from model import getModel
 from utils.utils import collate_fn_cat
@@ -75,6 +75,7 @@ def main():
 
 	  train_dataset = Fusion(SourceDataset, TargetDataset, nViews = args.nViews, targetRatio = args.targetRatio, totalTargetIm = args.totalTargetIm)
 	  trainTarget_dataset = train_dataset.targetDataset
+
 	  
 	  trainTarget_loader = torch.utils.data.DataLoader(
 	      trainTarget_dataset, batch_size=args.batchSize, shuffle=True,
@@ -108,7 +109,7 @@ def main():
 	  print 'Start training...'
 	  for epoch in range(1, args.epochs + 1):
 	    adjust_learning_rate(optimizer, epoch, args.dropLR)
-	    train(args, [trainTarget_loader], model, prior_loss, args.batch_norm, logger, optimizer, epoch-1, threshold = args.threshold)
+	    train_fusion(args, [trainTarget_loader, trainSource_loader], model, prior_loss, args.batch_norm, logger, optimizer, epoch-1, threshold = args.threshold)
 
 	    if epoch%2==0:
 

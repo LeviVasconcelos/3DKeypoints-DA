@@ -13,6 +13,8 @@ from layers.prior_generator import compute_distances
 from PIL import Image
 import sys
 import time
+import torch.nn as nn
+import itertools
 
 from layers.PriorConsistencyCriterion import compute_rotation_loss
 
@@ -124,7 +126,7 @@ def train_step(args, split, epoch, loader, model, loss, update_bn=True, logger=N
 	del cr_loss, output
 	continue
 
-    cr_loss = (w*cr_loss).sum()/mask.sum()
+    cr_loss = (mask*cr_loss).sum()/mask.sum()
     #rotation_loss = compute_rotation_loss(old_output.view(input.shape[0],10,3), output.view(input.shape[0],10,3), w)
 
     prior_loss.append(cr_loss.item())
@@ -132,7 +134,7 @@ def train_step(args, split, epoch, loader, model, loss, update_bn=True, logger=N
 
 
     optimizer.zero_grad()
-    total_loss = cr_loss# + 0.1*rotation_loss
+    total_loss = cr_loss #+ 0.1*rotation_loss
     total_loss.backward() 
     optimizer.step()
     logger.add_scalar('train/prior-loss', cr_loss.item(), idx_0+i)
@@ -142,7 +144,43 @@ def train_step(args, split, epoch, loader, model, loss, update_bn=True, logger=N
   return np.array(prior_loss).mean()
 
 
+def train_step_fusion(args, split, epoch, loader, model, loss, update_bn=True, logger=None, optimizer = None, M = None, f = None, nViews=ref.nViews, device='cuda', threshold=0.1):
+	  losses, mpjpe, mpjpe_r = AverageMeter(), AverageMeter(), AverageMeter()
+	  viewLosses, shapeLosses, supLosses = AverageMeter(), AverageMeter(), AverageMeter()
+	  
+	  prior_loss = []
 
+	  if update_bn>0:
+		print('Epoch: ' + str(epoch+1)+ ': unsupervised training with BN')
+	  	model.train()
+	  else:
+		print('Epoch: ' + str(epoch+1)+ ': unsupervised training without BN')
+		model.eval()
+
+	  idx_0 = len(loader[0])*epoch
+	  i = -1
+	  for (targetInput, targetLabel, _), (sourceInput, sourceLabel, _) in itertools.izip(loader[0], loader[1]):
+	    i+=1
+
+	    optimizer.zero_grad()
+	    if (sourceInput.nelement() > 0):
+		  sourceInput_var = sourceInput.to(device)
+		  sourceLabel_var = sourceLabel.to(device)
+		  source_output = model(sourceInput_var)
+		  source_loss = ((source_output - sourceLabel_var.view(sourceLabel_var.shape[0],-1)) ** 2).mean()
+		  source_loss.backward()
+		  logger.add_scalar('train/regr-loss', source_loss.item(), idx_0+i)
+		  
+	    if (targetInput.nelement() > 0):
+		  targetInput_var = targetInput.to(device)
+		  targetLabel_var = targetLabel.to(device)
+		  target_output = model(targetInput_var)
+		  target_loss = cr_loss = threshold*loss(target_output, dt=None).mean()
+		  target_loss.backward()
+	    	  logger.add_scalar('train/prior-loss', cr_loss.item(), idx_0+i)
+	    optimizer.step()
+		  
+	  return 0.
 
 def eval_step(args, split, epoch, loader, model, loss, update=True, optimizer = None, M = None, f = None, nViews=ref.nViews, plot_img = False, logger = None,device='cuda'):
   losses, mpjpe, mpjpe_r = AverageMeter(), AverageMeter(), AverageMeter()
@@ -172,14 +210,17 @@ def eval_step(args, split, epoch, loader, model, loss, update=True, optimizer = 
     regr_loss.append(cr_regr_loss.item())
     dt = compute_distances(target_var)
     cr_loss = loss(output, dt=dt).mean()
-    if plot_img and i<10:
-		img = (input.numpy()[0] * 255).transpose(1, 2, 0).astype(np.uint8)
-		cv2.imwrite('01.png', img)
-		gt = target.cpu().numpy()[0]
-		pred = (output.data).cpu().numpy()[0]
-		p2d, p3d = compute_images(cv2.imread('01.png'),pred,gt)
- 		logger.add_image('Image 2D ' +str(i), (np.asarray(Image.open(p2d))).transpose(2,0,1), epoch)
- 		logger.add_image('Image 3D ' +str(i), (np.asarray(Image.open(p3d))).transpose(2,0,1), epoch)
+    #if plot_img and i<10:
+	#	try:
+	#		img = (input.numpy()[0] * 255).transpose(1, 2, 0).astype(np.uint8)
+	#		cv2.imwrite('01.png', img)
+	#		gt = target.cpu().numpy()[0]
+	#		pred = (output.data).cpu().numpy()[0]
+	#		p2d, p3d = compute_images(cv2.imread('01.png'),pred,gt)
+	 #		logger.add_image('Image 2D ' +str(i), (np.asarray(Image.open(p2d))).transpose(2,0,1), epoch)
+	 #		logger.add_image('Image 3D ' +str(i), (np.asarray(Image.open(p3d))).transpose(2,0,1), epoch)
+	#	except:
+	#		continue
 
     prior_loss.append(cr_loss.item())
 
@@ -190,6 +231,9 @@ def eval_step(args, split, epoch, loader, model, loss, update=True, optimizer = 
 
 def train(args, train_loader, model, loss, update_bn, logger, optimizer, epoch, nViews=ref.nViews, threshold = 0.9):
   return train_step(args, 'train', epoch, train_loader[0], model, loss, update_bn, logger, optimizer, threshold=threshold)
+
+def train_fusion(args, train_loader, model, loss, update_bn, logger, optimizer, epoch, nViews=ref.nViews, threshold = 0.9):
+  return train_step_fusion(args, 'train', epoch, train_loader, model, loss, update_bn, logger, optimizer, threshold=threshold)
 
 def validate(args, supTag, val_loader, model, loss, epoch,plot_img=False, logger=None):
   return eval_step(args, 'val' + supTag, epoch, val_loader, model,loss,plot_img = plot_img, logger = logger)

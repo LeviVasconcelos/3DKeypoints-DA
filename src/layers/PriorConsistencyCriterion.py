@@ -36,7 +36,7 @@ class AbstractPriorLoss(nn.Module):
 
 
     # Init possibly useful matrices
-    self.upper_triangular = torch.FloatTensor(1,self.J,self.J).zero_() 
+    self.upper_triangular = torch.FloatTensor(1,self.J**2,self.J**2).zero_() 
 
 
     self.eyeJ2 = torch.eye(J**2).unsqueeze(0).float()
@@ -52,12 +52,13 @@ class AbstractPriorLoss(nn.Module):
 	adjacency[i,j]=1.
 
     adjacency = adjacency.view(1,1,1,self.J,self.J)
+    for i in range(self.upper_triangular.shape[1]):
+	    for j in range(i+1,self.upper_triangular.shape[2]):
+			self.upper_triangular[0,i,j]=1.
 
     for i in range(self.J):
             self_keypoint_props[0,i,i,i,i]=1.
 	    for j in range(self.J):
-		    if j>i:
-			self.upper_triangular[0,i,j]=1.
 		    for l in range(self.J):
 			    for m in range(self.J):
 				if i==j or l==m or (i==l and j==m) or (i==m and j==l):
@@ -65,8 +66,8 @@ class AbstractPriorLoss(nn.Module):
 					
 
 
-    self.upper_triangular = self.upper_triangular.to(device)
-    self.adjacency = adjacency.to(device)
+    self.upper_triangular = self.upper_triangular.view(1,self.J,self.J,self.J,self.J).to(device)
+    self.adjacency = adjacency
     self.mask_no_self_connections = mask_no_self_connections.to(device)
     self.self_keypoint_props = self_keypoint_props.to(device)
 
@@ -79,7 +80,7 @@ class AbstractPriorLoss(nn.Module):
     else:
 	print('Initializing a distances refiner')
 	self.refiner=(self.refine_distances)
-	factor = torch.exp((torch.abs(Corr))).view(1,self.J,self.J,self.J,self.J)
+	factor = torch.exp((torch.abs(Corr))).view(1,self.J,self.J,self.J,self.J)*self.adjacency
         factor = factor.to(device)
 	self.normalizer = factor*self.mask_no_self_connections + self.self_keypoint_props
 	self.normalizer = self.normalizer/(self.normalizer.sum(-1).sum(-1).view(1,self.J,self.J,1,1))
@@ -139,10 +140,9 @@ class PriorRegressionCriterion(AbstractPriorLoss):
     prediction = prediction.view(prediction.shape[0],self.J,-1)
     dists = compute_distances(prediction, eps=self.eps)
     gt_dists=dt
-    if gt_dists is None:
-    	dists = compute_distances(prediction, eps=self.eps)
-	props = compute_proportions(dists, eps=self.eps).view(dists.shape[0],self.J,self.J,self.J,self.J)
-	gt_dists = self.refine_distances(props)*(1.-self.eyeJ)
+    dists = compute_distances(prediction, eps=self.eps)
+    props = compute_proportions(dists, eps=self.eps).view(dists.shape[0],self.J,self.J,self.J,self.J)
+    gt_dists = self.refine_distances(props)*(1.-self.eyeJ)
 
     props = compute_proportions(dists, eps=self.eps).view(dists.shape[0],self.J,self.J,self.J,self.J)
     gt_dists = self.refiner(dists, props)
@@ -189,7 +189,7 @@ class PriorSMACOFCriterion(AbstractPriorLoss):
 
 
 
-  def forward_objective(self, prediction, dt=None):
+  def forward_objective_gt(self, prediction, dt=None):
 
     prediction = prediction.view(prediction.shape[0],self.J,-1)
     
@@ -197,30 +197,31 @@ class PriorSMACOFCriterion(AbstractPriorLoss):
     dists.detach_().requires_grad_(True)
     gt_dists = dists*0.
     props = compute_proportions(dists, eps=self.eps).view(dists.shape[0],self.J,self.J,self.J,self.J)
-    lkl = -self.compute_likelihood(props)
+    lkl = self.compute_likelihood(props)
     for i in range(props.shape[0]):
+
     	lkl[i].backward(retain_graph=True)
-	#gt_dists = torch.sign(-dists.grad[i])*0.1*dists + dists
-
-	gt_dists[i] = torch.clamp(dists[i]-dists.grad[i],min=0.,max=torch.max(dists[i]).item())
-
+	
+	gt_dists[i] = (dists.grad[i])/torch.max(torch.abs(dists.grad[i]))*0.1 + dists[i]
+        gt_dists[i] = torch.clamp(gt_dists[i],min=0.,max=torch.max(dists[i]).item())
     gt_dists.detach_()
     gt_dists=gt_dists*(1-self.eyeJ)
 
     w = torch.ones_like(dists)					##### TODO ######
 
     error = self.compute_obj(prediction, gt_dists, w)/self.J
+    #error2 = self.forward_objective_corr(prediction)/self.J
 
-    return error
+    return error#1+error2
 
 
-  def forward_objective_gt(self, prediction, dt=None):
+  def forward_objective(self, prediction, dt=None):
 
     prediction = prediction.view(prediction.shape[0],self.J,-1)
     gt_dists = dt
 
     if True:
-    	dists = compute_distances(prediction, eps=self.eps).detach()
+    	dists = compute_distances(prediction, eps=self.eps)
 	props = compute_proportions(dists, eps=self.eps).view(dists.shape[0],self.J,self.J,self.J,self.J)
 	gt_dists = self.refine_distances(dists,props)*(1.-self.eyeJ)
 
@@ -237,7 +238,7 @@ class PriorSMACOFCriterion(AbstractPriorLoss):
     gt_dists = dt
 
     if dt is None:
-    	dists = compute_distances(prediction, eps=self.eps)
+    	dists = compute_distances(prediction, eps=self.eps)*(1.-self.eyeJ)
 	props = compute_proportions(dists, eps=self.eps).view(dists.shape[0],self.J,self.J,self.J,self.J)
 	gt_dists = self.refine_distances(dists, props)*(1.-self.eyeJ)
 
