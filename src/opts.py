@@ -11,12 +11,16 @@ class opts():
                                help='path to save')
     self.parser.add_argument('-targetDataset', default='Redwood', type=str, 
                                help='Redwood | ShapeNet | RedwoodRGB | 3DCNN')
+    self.parser.add_argument('-sourceDataset', default='ModelNet', type=str, help='ModelNet | HumansRGB | HumansDepth')
     self.parser.add_argument('-test', action = 'store_true', help='test')
     self.parser.add_argument('-extractProps', action = 'store_true', help='test')
 
     self.parser.add_argument('-weightedNorm', action = 'store_true', help='whether to use the std while computing the loss')
+    self.parser.add_argument('-propsOnly', action = 'store_true', help='whether to use just proportion distances as loss')
     self.parser.add_argument('-lossNorm', default='l2', type=str, 
                                help='l2 | l1 | frobenius')
+    self.parser.add_argument('-distsRefiner', default=None, type=str, 
+                               help='Whether to refine distance computations')
 
     self.parser.add_argument('-batch_norm', default = 1, type = int, help='Whether to update BN')
 

@@ -4,10 +4,7 @@ import collections
 import shutil
 import numpy as np
 import ref
-import matplotlib.pyplot as plt
-import mpl_toolkits.mplot3d
-from mpl_toolkits.mplot3d import Axes3D
-
+import os
 
 if sys.version_info[0] == 2:
     import Queue as queue
@@ -92,3 +89,7 @@ def check_equals_bn(dict1, dict2):
                 flag = False
                 print(key)
     return flag
+
+def createDirIfNonExistent(path):
+    if not os.path.isdir(path):
+        os.mkdir(path)

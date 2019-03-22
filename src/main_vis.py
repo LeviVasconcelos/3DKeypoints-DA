@@ -17,8 +17,11 @@ import ref
 import cv2
 import numpy as np
 from datasets.Fusion import Fusion
+from datasets.humans36m import Humans36mDataset
 
+from utils.utils import createDirIfNonExistent
 from utils.logger import Logger
+
 from opts import opts
 from train_with_priors import train, validate, test, train_fusion
 from optim_latent import initLatent, stepLatent, getY
@@ -28,7 +31,18 @@ from utils.utils import collate_fn_cat
 from layers.prior_generator import compute_distances
 
 from datasets.chairs_modelnet import ChairsModelNet as SourceDataset
+
 args = opts().parse()
+
+if args.sourceDataset =='ModelNet':
+  from datasets.chairs_modelnet import ChairsModelNet as SourceDataset
+elif args.sourceDataset == 'HumansRGB':
+  from datasets.humans36m import Humans36mRGBDataset as SourceDataset
+elif args.sourceDataset == 'HumansDepth':
+  from datasets.humans36m import Humans36mDepthDataset as SourceDataset
+else:
+  raise Exception("No source dataset: " + args.sourceDataset)
+
 if args.targetDataset == 'Redwood':
   from datasets.chairs_Redwood import ChairsRedwood as TargetDataset
 elif args.targetDataset == 'ShapeNet':
@@ -37,18 +51,22 @@ elif args.targetDataset == 'RedwoodRGB':
   from datasets.chairs_RedwoodRGB import ChairsRedwood as TargetDataset
 elif args.targetDataset == '3DCNN':
   from datasets.chairs_3DCNN import Chairs3DCNN as TargetDataset
+elif args.targetDataset == 'HumansRGB':
+  from datasets.humans36m import Humans36mRGBDataset as TargetDataset
+elif args.targetDataset == 'HumansDepth':
+  from datasets.humans36m import Humans36mDepthDataset as TargetDataset
 else:
   raise Exception("No target dataset {}".format(args.targetDataset))
 
 splits = ['train', 'valSource', 'valTarget']
-
-
+kHumansDataset = ['HumansRGB', 'HumansDepth']
 
 
 def main():
 
   for run in range(1,args.runs+1):
   	  logger = SummaryWriter(args.logDir+'-run'+str(run))
+
 	  # Init model
 	  model = getModel(args)
 	  cudnn.benchmark = True
@@ -60,9 +78,19 @@ def main():
 
 
 	  # Init loaders
-	  valSource_dataset = SourceDataset('test', ref.nValViews)
-	  valTarget_dataset = TargetDataset('test', ref.nValViews)
-	  
+          # Couple sanity checks
+          if args.targetDataset in kHumansDataset or args.sourceDataset in kHumansDataset:
+            assert(ref.nViews <= 4)
+            assert(args.nViews <= 4)
+            assert(ref.J == 32)
+            assert(ref.category == 'Human')
+            assert(ref.nValViews <= 4)
+
+          source_valViews = ref.nValViews if args.sourceDataset != 'HumansDepth' else 1
+          target_valViews = ref.nValViews if args.targetDataset != 'HumansDepth' else 1
+
+          valSource_dataset = SourceDataset('test', source_valViews)
+          valTarget_dataset = TargetDataset('test', target_valViews)	  
 	  valSource_loader = torch.utils.data.DataLoader(valSource_dataset, batch_size = 1, 
 		                shuffle=False, num_workers=1, pin_memory=True, collate_fn=collate_fn_cat)
 	  valTarget_loader = torch.utils.data.DataLoader(valTarget_dataset, batch_size = 1, 
@@ -88,8 +116,10 @@ def main():
 	      num_workers=args.workers if not args.test else 1, pin_memory=True, collate_fn=collate_fn_cat)
 
 
-	  prior_loss = PriorSMACOFCriterion(args.propsFile, norm = args.lossNorm, distances_refinement='daje', iterate=False)
-	  #prior_loss = PriorRegressionCriterion(args.propsFile, norm = args.lossNorm, distances_refinement='daje', obj='props')
+	  if args.propsOnly:
+	  	prior_loss = PriorRegressionCriterion(args.propsFile, norm = args.lossNorm, distances_refinement=arg.distsRefiner, obj='props')
+	  else:
+	  	prior_loss = PriorSMACOFCriterion(args.propsFile, norm = args.lossNorm, distances_refinement=arg.distsRefiner, iterate=False, J=ref.J)
 
 	  valSource_mpjpe, valSource_shape,  valSource_loss, valSource_unSuploss = validate(args, 'Source', valSource_loader, model, prior_loss, 0)
 	  valTarget_mpjpe, valTarget_shape, valTarget_loss, valTarget_unSuploss = validate(args, 'Target', valTarget_loader, model, prior_loss, 0, plot_img=True, logger=logger)
@@ -109,7 +139,7 @@ def main():
 	  print 'Start training...'
 	  for epoch in range(1, args.epochs + 1):
 	    adjust_learning_rate(optimizer, epoch, args.dropLR)
-	    train_fusion(args, [trainTarget_loader, trainSource_loader], model, prior_loss, args.batch_norm, logger, optimizer, epoch-1, threshold = args.threshold)
+	    train(args, [trainTarget_loader], model, prior_loss, args.batch_norm, logger, optimizer, epoch-1, threshold = args.threshold)
 
 	    if epoch%2==0:
 

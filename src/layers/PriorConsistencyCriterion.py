@@ -9,6 +9,7 @@ from prior_generator import compute_distances, compute_proportions, replicate_ma
 from scipy.misc import toimage
 from torchviz import make_dot
 import math
+import os
 
 ###########################
 #### LOSS DEFINITIONS #####
@@ -22,7 +23,8 @@ EDGES = [(0,1),(0,2),(1,3),(2,3),(2,4),(2,6),(3,5),(3,7),(4,5),(4,8),(5,9)]
 class AbstractPriorLoss(nn.Module):
   def __init__(self, path, J=10, eps = 10**(-6), device='cuda', norm='l2', distances_refinement=None):
     super(AbstractPriorLoss, self).__init__()
-    Mean,Std,DMean, DStd, Corr = get_priors_from_file(path)
+    #Mean,Std,DMean, DStd, Corr = get_priors_from_file(path)
+    Mean, Std = load_priors_from_file(path)
 
     self.J = J
     self.eps = eps
@@ -30,8 +32,8 @@ class AbstractPriorLoss(nn.Module):
     # Init priors holders
     self.priorMean=Mean.view(1,self.J, self.J, self.J,self.J)
     self.priorStd=Std.view(1,self.J, self.J, self.J,self.J)
-    self.distMean = DMean.view(1,self.J, self.J)
-    self.distStd=DStd.view(1,self.J, self.J)
+    #self.distMean = DMean.view(1,self.J, self.J)
+    #self.distStd=DStd.view(1,self.J, self.J)
 
 
 
@@ -80,8 +82,8 @@ class AbstractPriorLoss(nn.Module):
     else:
 	print('Initializing a distances refiner')
 	self.refiner=(self.refine_distances)
-	factor = torch.exp((torch.abs(Corr))).view(1,self.J,self.J,self.J,self.J)*self.adjacency
-        factor = factor.to(device)
+	factor = 1.#self.adjacency.to(device) #torch.exp((torch.abs(Corr))).view(1,self.J,self.J,self.J,self.J)*self.adjacency
+        #factor = factor.to(device)
 	self.normalizer = factor*self.mask_no_self_connections + self.self_keypoint_props
 	self.normalizer = self.normalizer/(self.normalizer.sum(-1).sum(-1).view(1,self.J,self.J,1,1))
 	self.normalizer = self.normalizer.to(device)
@@ -129,7 +131,6 @@ class PriorRegressionCriterion(AbstractPriorLoss):
     prediction = prediction.view(prediction.shape[0],self.J,-1)
     dists = compute_distances(prediction, eps=self.eps)
     props = compute_proportions(dists, eps=self.eps).view(dists.shape[0],self.J,self.J,self.J,self.J)
-
     diff = (props-self.priorMean)
     mse = self.norm(diff)
 
@@ -142,7 +143,7 @@ class PriorRegressionCriterion(AbstractPriorLoss):
     gt_dists=dt
     dists = compute_distances(prediction, eps=self.eps)
     props = compute_proportions(dists, eps=self.eps).view(dists.shape[0],self.J,self.J,self.J,self.J)
-    gt_dists = self.refine_distances(props)*(1.-self.eyeJ)
+    gt_dists = self.refiner(props)*(1.-self.eyeJ)
 
     props = compute_proportions(dists, eps=self.eps).view(dists.shape[0],self.J,self.J,self.J,self.J)
     gt_dists = self.refiner(dists, props)
@@ -186,46 +187,15 @@ class PriorSMACOFCriterion(AbstractPriorLoss):
 	self.forward = self.forward_objective
 
 
-
-
-
-  def forward_objective_gt(self, prediction, dt=None):
-
-    prediction = prediction.view(prediction.shape[0],self.J,-1)
-    
-    dists = compute_distances(prediction, eps=self.eps)
-    dists.detach_().requires_grad_(True)
-    gt_dists = dists*0.
-    props = compute_proportions(dists, eps=self.eps).view(dists.shape[0],self.J,self.J,self.J,self.J)
-    lkl = self.compute_likelihood(props)
-    for i in range(props.shape[0]):
-
-    	lkl[i].backward(retain_graph=True)
-	
-	gt_dists[i] = (dists.grad[i])/torch.max(torch.abs(dists.grad[i]))*0.1 + dists[i]
-        gt_dists[i] = torch.clamp(gt_dists[i],min=0.,max=torch.max(dists[i]).item())
-    gt_dists.detach_()
-    gt_dists=gt_dists*(1-self.eyeJ)
-
-    w = torch.ones_like(dists)					##### TODO ######
-
-    error = self.compute_obj(prediction, gt_dists, w)/self.J
-    #error2 = self.forward_objective_corr(prediction)/self.J
-
-    return error#1+error2
-
-
   def forward_objective(self, prediction, dt=None):
 
     prediction = prediction.view(prediction.shape[0],self.J,-1)
-    gt_dists = dt
 
-    if True:
-    	dists = compute_distances(prediction, eps=self.eps)
-	props = compute_proportions(dists, eps=self.eps).view(dists.shape[0],self.J,self.J,self.J,self.J)
-	gt_dists = self.refine_distances(dists,props)*(1.-self.eyeJ)
+    dists = compute_distances(prediction, eps=self.eps)
+    props = compute_proportions(dists, eps=self.eps).view(dists.shape[0],self.J,self.J,self.J,self.J)
+    gt_dists = self.refiner(dists,props)*(1.-self.eyeJ)
 
-    w = torch.ones_like(gt_dists)					##### TODO ######
+    w = torch.ones_like(gt_dists)
 
     error = self.compute_obj(prediction, gt_dists, w)/self.J
 
@@ -235,14 +205,12 @@ class PriorSMACOFCriterion(AbstractPriorLoss):
 
   def forward_iterative(self, prediction, dt=None):
     prediction = prediction.view(prediction.shape[0],self.J,-1)
-    gt_dists = dt
 
-    if dt is None:
-    	dists = compute_distances(prediction, eps=self.eps)*(1.-self.eyeJ)
-	props = compute_proportions(dists, eps=self.eps).view(dists.shape[0],self.J,self.J,self.J,self.J)
-	gt_dists = self.refine_distances(dists, props)*(1.-self.eyeJ)
+    dists = compute_distances(prediction, eps=self.eps)*(1.-self.eyeJ)
+    props = compute_proportions(dists, eps=self.eps).view(dists.shape[0],self.J,self.J,self.J,self.J)
+    gt_dists = self.refiner(dists, props)*(1.-self.eyeJ)
 
-    w = torch.ones_like(gt_dists)#None #torch.ones_like(gt_dists)					##### TODO ######
+    w = torch.ones_like(gt_dists)
 
     X = self.iterate(prediction, gt_dists, w).detach()
     error = self.norm(X-prediction)/self.J
@@ -271,7 +239,7 @@ class PriorSMACOFCriterion(AbstractPriorLoss):
 	#### Compute the third term: -2 \sum_{i<j} w_{ij}\delta_{i,j} d_{ij}(X) = trace(X'B(Z)Z)####
 	
 	B = self.compute_B(x,d,w,delta)
-	Z = X			# TODO Change/Iterate???
+	Z = X			
 	TB = torch.bmm(T,B)
 	TBZ = torch.bmm(TB,Z)
 	
@@ -356,6 +324,16 @@ def get_priors_from_file(path, device='cuda', eps=10**(-6)):
 
 
 
+def load_priors_from_file(root_folder, device='cuda', eps=10**(-6)):
+        kMeanFilename = 'MEAN.npy'
+        kStdFilename = 'STD.npy'
+	mean = np.load(os.path.join(root_folder, kMeanFilename))
+	std = np.load(os.path.join(root_folder, kStdFilename))
+        
+	mean = torch.from_numpy(mean).float()
+        std = torch.from_numpy(std).float()
+
+	return mean.to(device), std.to(device)
 
 ###############
 #### NORMS ####

@@ -22,8 +22,8 @@ def compute_distances(x, eps=10**(-6)):
 
     x_transposed = x.permute(0,2,1) # B x K x D
     xxT = torch.bmm(x,x_transposed)
-    dists = x_squared_left + x_squared_right - 2*xxT +eps
-    dists = dists.pow(0.5)
+    dists = x_squared_left + x_squared_right - 2*xxT  +eps
+    dists = (nn.functional.relu(dists)).pow(0.5)
     return  dists # B x K x K
 
 
