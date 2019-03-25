@@ -15,7 +15,7 @@ class ShapeConsistencyCriterion(Function):
   def forward(self, input, target_, meta_):
     target = target_.numpy()
     G = target.shape[0] / self.nViews
-    points = input.cpu().numpy().astype(np.float32)
+    points = input.detach_().cpu().numpy().astype(np.float32)
     points = points.reshape(G, self.nViews, ref.J, 3)
     target = target.reshape(G, self.nViews, ref.J, 3)
     meta = meta_.numpy().reshape(G, self.nViews, ref.metaDim)
@@ -33,6 +33,7 @@ class ShapeConsistencyCriterion(Function):
           p2 = points[g, j].reshape(ref.J, 3).transpose(1, 0).copy()
           self.R[g, j], t = horn87(M, p2)
           self.p3[g, j] = (np.dot(t.reshape(3, 1), np.ones((1, ref.J))) + np.dot(self.R[g, j], M)).copy()
+	  
           loss += ((p2 - self.p3[g, j]) ** 2).sum() / ref.J / 3 / self.nViews
         output += self.unSupWeight * loss
       else:
@@ -43,22 +44,34 @@ class ShapeConsistencyCriterion(Function):
     self.save_for_backward(input, target_, meta_)
     return torch.ones(1) * output
 
+
+
+
+
+
+
+
   def backward(self, grad_output):
     input, target_, meta_ = self.saved_tensors
     grad_input = torch.zeros(input.shape)
     G = target_.shape[0] / self.nViews
-    points = input.cpu().numpy()
+    points = input.cpu().detach().numpy()
     points = points.reshape(G, self.nViews, ref.J, 3)
     target = target_.numpy()
     target = target.reshape(G, self.nViews, ref.J, 3)
     meta = meta_.numpy().reshape(G, self.nViews, ref.metaDim)
+    
     for g in range(G):
       if meta[g, 0, 0] > 1 + ref.eps:
         for j in range(self.nViews):
           p2 = points[g, j].copy()
-          grad_input[g * self.nViews + j] +=  grad_output[0] * self.unSupWeight * 2 * torch.from_numpy(p2 - self.p3[g, j].transpose(1, 0)) / ref.J / 3 / self.nViews / G
+          temp = grad_output[0] * self.unSupWeight * 2 * torch.from_numpy(p2 - self.p3[g, j].transpose(1, 0)) / ref.J / 3 / self.nViews / G
+          grad_input[g * self.nViews + j] +=  temp.view(-1)
       else:
         for v in range(self.nViews):
-          grad_input[g * self.nViews + v] += grad_output[0] * self.supWeight * 2 * torch.from_numpy(points[g, v] - target[g, v]) / ref.J / 3 / self.nViews / G
-    return grad_input, None, None
+	  temp = grad_output[0] * self.supWeight * 2 * torch.from_numpy(points[g, v] - target[g, v]) / ref.J / 3 / self.nViews / G 
+          grad_input[g * self.nViews + v] += temp.view(-1)
+    return grad_input.cuda(), None, None
+
+
 

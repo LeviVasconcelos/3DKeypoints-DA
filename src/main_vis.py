@@ -23,7 +23,7 @@ from utils.utils import createDirIfNonExistent
 from utils.logger import Logger
 
 from opts import opts
-from train_with_priors import train, validate, test, train_fusion
+from train_with_priors import train, validate, test, train_priors, validate_priors
 from optim_latent import initLatent, stepLatent, getY
 from model import getModel
 from utils.utils import collate_fn_cat
@@ -136,26 +136,55 @@ def main():
 	  logger.add_scalar('val/target-prior-loss', valTarget_unSuploss, 0)
 
 
+	  M = None
+	  if args.shapeWeight > ref.eps and args.shapeConsistency:
+	    print 'getY...'
+	    if args.dialModel:
+	      model.set_domain(source=False)
+	    Y = getY(SourceDataset('train', args.nViews))
+	    M = initLatent(trainTarget_loader, model, Y, nViews = args.nViews, S = args.sampleSource, AVG = args.AVG, dial=DIAL)
+
 	  print 'Start training...'
 	  for epoch in range(1, args.epochs + 1):
 	    adjust_learning_rate(optimizer, epoch, args.dropLR)
-	    train(args, [trainTarget_loader], model, prior_loss, args.batch_norm, logger, optimizer, epoch-1, threshold = args.threshold)
+	    
+	    if args.shapeConsistency:
+		    if args.shapeWeight > ref.eps and args.dialModel:
+			  train_loader = fusion_loader
+			  len_loader = len(train_loader)
+			  train_mpjpe, train_loss, train_unSuploss = dial_train(args, (train_loader, len_loader), model, optimizer, M, epoch, dial=DIAL, nViews=args.nViews)
+		    else:
+			  train_loader = fusion_loader
+			  train_mpjpe, train_loss, train_unSuploss = train(args, train_loader, model, optimizer, M, epoch, dial=DIAL, nViews=args.nViews)
+		    if args.shapeWeight > ref.eps:
+			  trainTarget_loader.dataset.shuffle()
+		    else:
+			  train_loader.dataset.targetDataset.shuffle()
+		    if args.shapeWeight > ref.eps and epoch % args.intervalUpdateM == 0:
+		      M = stepLatent(trainTarget_loader, model, M, Y, nViews = args.nViews, lamb = args.lamb, mu = args.mu, S = args.sampleSource, call_count=call_count, dial=DIAL)
+		      call_count += 1
 
-	    if epoch%2==0:
+		    valSource_mpjpe, valSource_loss, valSource_unSuploss = validate(args, 'Source', valSource_loader, model, None, epoch)
+		    valTarget_mpjpe, valTarget_loss, valTarget_unSuploss = validate(args, 'Target', valTarget_loader, model, None, epoch)
+
+	    else:
+		    train_priors(args, [trainTarget_loader], model, prior_loss, args.batch_norm, logger, optimizer, epoch-1, threshold = args.threshold)
+
+		    if epoch%2==0:
 
 
-	            valTarget_mpjpe, valTarget_shape, valTarget_loss, valTarget_unSuploss = validate(args, 'Target', valTarget_loader, model, prior_loss, epoch, plot_img=True, logger=logger)
+			    valTarget_mpjpe, valTarget_shape, valTarget_loss, valTarget_unSuploss = validate_priors(args, 'Target', valTarget_loader, model, prior_loss, epoch, plot_img=True, logger=logger)
 
-		    if epoch%5==0:
-				   valSource_mpjpe, valSource_shape, valSource_loss, valSource_unSuploss = validate(args, 'Source', valSource_loader, model, prior_loss, epoch)
-		    		   logger.add_scalar('val/source-accuracy', valSource_mpjpe, epoch)
-		    		   logger.add_scalar('val/source-prior-loss', valSource_unSuploss, epoch)
-	    			   logger.add_scalar('val/source-regr-loss', valSource_loss, epoch)
+			    if epoch%5==0:
+					   valSource_mpjpe, valSource_shape, valSource_loss, valSource_unSuploss = validate_priors(args, 'Source', valSource_loader, model, prior_loss, epoch)
+			    		   logger.add_scalar('val/source-accuracy', valSource_mpjpe, epoch)
+			    		   logger.add_scalar('val/source-prior-loss', valSource_unSuploss, epoch)
+		    			   logger.add_scalar('val/source-regr-loss', valSource_loss, epoch)
 
-		    logger.add_scalar('val/target-accuracy', valTarget_mpjpe, epoch)
-	  	    logger.add_scalar('val/target-accuracy-shape', valTarget_shape, epoch)
-		    logger.add_scalar('val/target-regr-loss', valTarget_loss, epoch)
-		    logger.add_scalar('val/target-prior-loss', valTarget_unSuploss, epoch)
+			    logger.add_scalar('val/target-accuracy', valTarget_mpjpe, epoch)
+		  	    logger.add_scalar('val/target-accuracy-shape', valTarget_shape, epoch)
+			    logger.add_scalar('val/target-regr-loss', valTarget_loss, epoch)
+			    logger.add_scalar('val/target-prior-loss', valTarget_unSuploss, epoch)
 	    
 	    if epoch % 10 == 0:
 	      torch.save({

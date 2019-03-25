@@ -43,7 +43,7 @@ def initLatent(loader, model, Y, nViews, S, AVG = False, dial=False):
   cnt_sigma2 = 1
   initial_latent_count = 0
   for i, (input, target, meta) in enumerate(loader):
-    output = (model(torch.autograd.Variable(input.cuda())).data).cpu().numpy()
+    output = (model(input.cuda()).data).cpu().numpy()
     G = output.shape[0] / nViews
     output = output.reshape(G, nViews, ref.J, 3)
     if AVG:
@@ -125,7 +125,7 @@ def stepLatent(loader, model, M_, Y, nViews, lamb, mu, S, call_count=-1, dial=Fa
   err, num = 0, 0
   latent_count = 0
   for i, (input, target, meta) in enumerate(loader):
-    output = (model(torch.autograd.Variable(input.cuda())).data).cpu().numpy()
+    output = (model(input.cuda()).data).cpu().numpy()
     G = output.shape[0] / nViews
     output = output.reshape(G, nViews, ref.J, 3)
     for g in range(G):

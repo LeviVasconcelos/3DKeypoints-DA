@@ -19,7 +19,7 @@ from datasets.Fusion import Fusion
 
 from utils.logger import Logger
 from opts import opts
-from train import train, validate, test, dial_train
+from train import train, validate, test, train_priors, validate_priors
 from optim_latent import initLatent, stepLatent, getY
 from model import getModel
 from utils.utils import collate_fn_cat

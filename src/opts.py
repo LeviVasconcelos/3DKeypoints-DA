@@ -14,7 +14,7 @@ class opts():
     self.parser.add_argument('-sourceDataset', default='ModelNet', type=str, help='ModelNet | HumansRGB | HumansDepth')
     self.parser.add_argument('-test', action = 'store_true', help='test')
     self.parser.add_argument('-extractProps', action = 'store_true', help='test')
-
+    self.parser.add_argument('-shapeConsistency', action = 'store_true', help='whether to use the baseline loss for DA')
     self.parser.add_argument('-weightedNorm', action = 'store_true', help='whether to use the std while computing the loss')
     self.parser.add_argument('-propsOnly', action = 'store_true', help='whether to use just proportion distances as loss')
     self.parser.add_argument('-lossNorm', default='l2', type=str, 
