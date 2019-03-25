@@ -11,17 +11,37 @@ class opts():
                                help='path to save')
     self.parser.add_argument('-targetDataset', default='Redwood', type=str, 
                                help='Redwood | ShapeNet | RedwoodRGB | 3DCNN')
+    self.parser.add_argument('-sourceDataset', default='ModelNet', type=str, help='ModelNet | HumansRGB | HumansDepth')
     self.parser.add_argument('-test', action = 'store_true', help='test')
+    self.parser.add_argument('-extractProps', action = 'store_true', help='test')
+
+    self.parser.add_argument('-weightedNorm', action = 'store_true', help='whether to use the std while computing the loss')
+    self.parser.add_argument('-propsOnly', action = 'store_true', help='whether to use just proportion distances as loss')
+    self.parser.add_argument('-lossNorm', default='l2', type=str, 
+                               help='l2 | l1 | frobenius')
+    self.parser.add_argument('-distsRefiner', default=None, type=str, 
+                               help='Whether to refine distance computations')
+
+    self.parser.add_argument('-batch_norm', default = 1, type = int, help='Whether to update BN')
+
     self.parser.add_argument('-DEBUG', default = 0, type = int, help='debug level')
+    self.parser.add_argument('-runs', default = 5, type = int, help='number of runs')
     self.parser.add_argument('-arch', default='resnet50')
     self.parser.add_argument('-workers', default=4, type=int, metavar='N', help='#data loading workers (default: 4)')
     self.parser.add_argument('-epochs', default=30, type=int, help='number of total epochs to run')
     self.parser.add_argument('-dropLR', default=20, type=int, metavar='N', help='# total epochs to drop LR')
     self.parser.add_argument('-batchSize', default=64, type=int, help='mini-batch size (default: 64)')
-    self.parser.add_argument('-LR', default=0.1, type=float, help='initial learning rate')
+    self.parser.add_argument('-LR', default=0.001, type=float, help='initial learning rate')
+
+    self.parser.add_argument('-threshold', default=0.9, type=float, help='threshold')
     self.parser.add_argument('-momentum', default=0.9, type=float, help='momentum')
+    self.parser.add_argument('-temperature', default=1., type=float, help='temperature')
     self.parser.add_argument('-weight_decay', default=1e-4, type=float, help='weight decay (default: 1e-4)')
     self.parser.add_argument('-loadModel', default='', type=str, help='path to loadmodel (default: none)')
+    self.parser.add_argument('-logDir', default='', type=str, help='where to store the tensorboard event catcher')
+
+    self.parser.add_argument('-propsFile', default='', type=str, help='where to store props')
+
     self.parser.add_argument('-pretrained', action='store_true', help='use pre-trained model')
     self.parser.add_argument('-shapeNetFullTest', action='store_true', help='shapeNetFullTest')
     self.parser.add_argument('-dialModel', action='store_true', help='informs whether the model has dial layers')
@@ -40,9 +60,12 @@ class opts():
     self.parser.add_argument('-sampleSource', default=1, type = int, help='sample source domain')
     self.parser.add_argument('-lamb', default=1, type = float, help='lamb')
     self.parser.add_argument('-mu', default=0.1, type = float, help='mu')
+    self.parser.add_argument('-eps', default=0.000001, type = float, help='epsilon')
     self.parser.add_argument('-approx_dial', action = 'store_true', help='train with dial approximation')
     self.parser.add_argument('-dial_fit', action = 'store_true', help='computes dial statistics')
     self.parser.add_argument('-dial_copy_source', action = 'store_true', help='copy weights from source to target bn')
+
+    self.parser.add_argument('-adda', action = 'store_true', help='performs adda stage')
     
     
     
@@ -57,11 +80,10 @@ class opts():
     
     self.args.batchSize = self.args.batchSize / self.args.nViews
     print '# model per batch: {}, # views: {} '.format(self.args.batchSize, self.args.nViews) 
-    
     if not os.path.exists(self.args.save_path):
-      os.mkdir(self.args.save_path)
-      if self.args.test:
-        os.mkdir(self.args.save_path + '/img_train')
-        os.mkdir(self.args.save_path + '/img_valSource')
-        os.mkdir(self.args.save_path + '/img_valTarget')
+	      os.mkdir(self.args.save_path)
+	      if self.args.test:
+		os.mkdir(self.args.save_path + '/img_train')
+		os.mkdir(self.args.save_path + '/img_valSource')
+		os.mkdir(self.args.save_path + '/img_valTarget')
     return self.args

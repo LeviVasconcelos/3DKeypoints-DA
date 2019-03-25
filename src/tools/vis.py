@@ -1,7 +1,8 @@
 import numpy as np
 import cv2
 import sys
-
+import matplotlib as mpl
+mpl.use('Agg')
 import matplotlib.pyplot as plt
 import mpl_toolkits.mplot3d
 from mpl_toolkits.mplot3d import Axes3D
@@ -35,22 +36,15 @@ def show2D(img, points, c):
     cv2.line(img, (points[e[0], 0], points[e[0], 1]),
                   (points[e[1], 0], points[e[1], 1]), c, 2)
   return img
-img_path = sys.argv[1]
-path = sys.argv[2]
 
-points = np.loadtxt(path)
-print points.shape
-pred = points[::2, :]
-gt = points[1::2, :]
 
-gt = gt.reshape(gt.shape[0], J, 3)
-N = pred.shape[0]
 
-for iii in range(2, N):
-  for jj in range(1):
-    i = np.random.randint(N)
-    img = cv2.imread('{}/{}.png'.format(img_path, i))
-    
+
+def compute_images(img, pred gt)
+
+    gt = gt.reshape(J, 3)
+    pred = pred.reshape(J, 3)
+
     fig = plt.figure()
     ax = fig.add_subplot((111),projection='3d')
     ax.set_xlabel('z') 
@@ -58,16 +52,18 @@ for iii in range(2, N):
     ax.set_zlabel('y')
     oo = 0.5
     xmax, ymax, zmax, xmin, ymin, zmin = oo, oo, oo, -oo, -oo, -oo
-    show3D(ax, gt[i], 'r')
-    img = show2D(img, gt[i], (0, 0, 255))
-    show3D(ax, pred[i], 'b')
-    img = show2D(img, pred[i], (255, 0, 0))
+    show3D(ax, gt, 'r')
+    img = show2D(img, gt, (0, 0, 255))
+    show3D(ax, pred, 'b')
+    img = show2D(img, pred, (255, 0, 0))
     max_range = np.array([xmax-xmin, ymax-ymin, zmax-zmin]).max()
     Xb = 0.5*max_range*np.mgrid[-1:2:2,-1:2:2,-1:2:2][0].flatten() + 0.5*(xmax+xmin)
     Yb = 0.5*max_range*np.mgrid[-1:2:2,-1:2:2,-1:2:2][1].flatten() + 0.5*(ymax+ymin)
     Zb = 0.5*max_range*np.mgrid[-1:2:2,-1:2:2,-1:2:2][2].flatten() + 0.5*(zmax+zmin)
     for xb, yb, zb in zip(Xb, Yb, Zb):
       ax.plot([zb], [xb], [yb], 'w')
-    cv2.imshow('input', img)
-    cv2.waitKey()
-    plt.show()
+    #cv2.imshow('input', img)
+    cv2.imwrite('2d.png',img)
+    #plt.show()
+    plt.savefig('3d.png')
+    return '2d.png', '3d.png'

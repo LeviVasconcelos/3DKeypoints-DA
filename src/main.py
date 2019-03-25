@@ -11,6 +11,7 @@ import torch.optim
 import torch.utils.data
 import torchvision.datasets as datasets
 
+
 import ref
 import cv2
 import numpy as np
@@ -23,9 +24,21 @@ from optim_latent import initLatent, stepLatent, getY
 from model import getModel
 from utils.utils import collate_fn_cat
 from dial_train import train_statistics
+from adda_train import train_discriminator
+from extract_priors import extract
 
 from datasets.chairs_modelnet import ChairsModelNet as SourceDataset
 args = opts().parse()
+
+if args.sourceDataset =='ModelNet':
+  from datasets.chairs_modelnet import ChairsModelNet as SourceDataset
+elif args.sourceDataset == 'HumansRGB':
+  from datasets.humans36m import Humans36mRGBDataset as SourceDataset
+elif args.sourceDataset == 'HumansDepth':
+  from datasets.humans36m import Humans36mDepthDataset as SourceDataset
+else:
+  raise Exception("No source dataset: " + args.sourceDataset)
+
 if args.targetDataset == 'Redwood':
   from datasets.chairs_Redwood import ChairsRedwood as TargetDataset
 elif args.targetDataset == 'ShapeNet':
@@ -34,6 +47,10 @@ elif args.targetDataset == 'RedwoodRGB':
   from datasets.chairs_RedwoodRGB import ChairsRedwood as TargetDataset
 elif args.targetDataset == '3DCNN':
   from datasets.chairs_3DCNN import Chairs3DCNN as TargetDataset
+elif args.targetDataset == 'HumansRGB':
+  from datasets.humans36m import Humans36mRGBDataset as TargetDataset
+elif args.targetDataset == 'HumansDepth':
+  from datasets.humans36m import Humans36mDepthDataset as TargetDataset
 else:
   raise Exception("No target dataset {}".format(args.targetDataset))
 
@@ -53,6 +70,16 @@ def main():
                               momentum=args.momentum,
                               weight_decay=args.weight_decay)
 
+          # Couple sanity checks
+  kHumansDataset = ['HumansRGB', 'HumansDepth']
+  if args.targetDataset in kHumansDataset or args.sourceDataset in kHumansDataset:
+      assert(ref.nViews <= 4)
+      assert(args.nViews <= 4)
+      assert(ref.J == 32)
+      assert(ref.category == 'Human')
+      assert(ref.nValViews <= 4)
+  source_valViews = ref.nValViews if args.sourceDataset != 'HumansDepth' else 1
+  target_valViews = ref.nValViews if args.targetDataset != 'HumansDepth' else 1
   valSource_dataset = SourceDataset('test', ref.nValViews)
   valTarget_dataset = TargetDataset('test', ref.nValViews)
   
@@ -63,6 +90,16 @@ def main():
   
   if args.dialModel:
         print 'dial model on'
+
+  if args.extractProps:
+    #sourceDist, sourceProps = extract(args, valSource_loader, model)
+    targetDist, targetProps = extract(args, valTarget_loader, model)
+    #np.save(args.propsFile+'-source-distances.npy', sourceDist)	
+    #np.save(args.propsFile+'-source-props.npy', sourceProps)	
+    np.save(args.propsFile+'-distances.npy', targetDist)	
+    np.save(args.propsFile+'-props.npy', targetProps)	
+    return
+
   if args.test:
     f = {}
     for split in splits:
@@ -91,7 +128,16 @@ def main():
   trainTarget_loader = torch.utils.data.DataLoader(
       trainTarget_dataset, batch_size=args.batchSize, shuffle=True,
       num_workers=args.workers if not args.test else 1, pin_memory=False, collate_fn=collate_fn_cat)
-  
+
+
+  if args.adda:
+        tgt_model = train_discriminator(model, trainSource_loader, trainTarget_loader, args.epochs)
+        torch.save({'epochs': args.epochs, 
+                    'arch': args.arch, 
+                    'state_dict': tgt_model.state_dict(), }, 
+        args.save_path + '/adda_fitted{}.pth.tar'.format(args.epochs))
+        return
+
   if args.dial_fit:
         loss_history = train_statistics(model, trainTarget_loader, args.epochs)
         torch.save({'epochs': args.epochs, 
@@ -152,7 +198,7 @@ def main():
     logger.scalar_summary('valSource_unSuploss', valSource_unSuploss, epoch)
     logger.scalar_summary('valTarget_unSuploss', valTarget_unSuploss, epoch)
     
-    if epoch % 10 == 0:
+    if epoch % 20 == 0:
       torch.save({
         'epoch': epoch + 1,
         'arch': args.arch,

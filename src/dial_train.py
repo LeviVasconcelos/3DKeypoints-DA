@@ -31,7 +31,7 @@ def forward_dataset(model, loader, epoch, max_epoch):
 
 def train_statistics(dial_model, dataset_loader, epochs, source_domain=False):
       dial_model.eval()
-      dial_model.set_domain(source=source_domain)
+      #dial_model.set_domain(source=source_domain)
       loss_history = []
       for e in range(epochs):
            loss = forward_dataset(dial_model, dataset_loader, e, epochs)
