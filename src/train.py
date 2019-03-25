@@ -36,10 +36,10 @@ def step(args, split, epoch, loader, model, optimizer = None, M = None, f = None
       print "target shape:" + str(target.size())
       print "meta shape:" + str(meta.size())
     
-    input_var = torch.autograd.Variable(input.cuda())
-    target_var = torch.autograd.Variable(target)
+    input_var = input.cuda()
+    target_var = target
     output = model(input_var)
-    loss = ShapeConsistencyCriterion(nViews, supWeight = 1, unSupWeight = args.shapeWeight, M = M)(output.cpu(), target_var, torch.autograd.Variable(meta))
+    loss = ShapeConsistencyCriterion(nViews, supWeight = 1, unSupWeight = args.shapeWeight, M = M)(output.cpu(), target_var, meta)
 
     if split == 'test':
       for j in range(input.numpy().shape[0]):
@@ -63,7 +63,7 @@ def step(args, split, epoch, loader, model, optimizer = None, M = None, f = None
     mpjpe_r_this = accuracy_dis(output.data, target, meta)
     shapeLoss = shapeConsistency(output.data, meta, nViews, M, split = split)
 
-    losses.update(loss.data[0], input.size(0))
+    losses.update(loss.item(), input.size(0))
     shapeLosses.update(shapeLoss, input.size(0))
     mpjpe.update(mpjpe_this, input.size(0))
     mpjpe_r.update(mpjpe_r_this, input.size(0))
@@ -79,6 +79,7 @@ def step(args, split, epoch, loader, model, optimizer = None, M = None, f = None
   bar.finish()
   return mpjpe.avg, losses.avg, shapeLosses.avg
 
+#TODO: Refactor using unpack_splitted
 def dial_step(args, split, epoch, (loader, len_loader), model, optimizer = None, M = None, f = None, tag = None, dial=False, nViews=ref.nViews):
   losses, mpjpe, mpjpe_r = AverageMeter(), AverageMeter(), AverageMeter()
   viewLosses, shapeLosses, supLosses = AverageMeter(), AverageMeter(), AverageMeter()
@@ -122,21 +123,21 @@ def dial_step(args, split, epoch, (loader, len_loader), model, optimizer = None,
             print "target Domain: " + str(targetDomains)
     
     if (len(source_input_list) > 0):
-          source_input_var = torch.autograd.Variable(sourceInput.cuda())
-          source_label_var = torch.autograd.Variable(sourceLabel)
+          source_input_var = sourceInput.cuda()
+          source_label_var = sourceLabel
           model.set_domain(source=True)
           source_output = model(source_input_var)
-          source_loss = ShapeConsistencyCriterion(nViews, supWeight = 1, unSupWeight = args.shapeWeight, M = M)(source_output.cpu(), source_label_var, torch.autograd.Variable(sourceMeta))
+          source_loss = ShapeConsistencyCriterion(nViews, supWeight = 1, unSupWeight = args.shapeWeight, M = M)(source_output.cpu(), source_label_var, sourceMeta)
           if split == 'train':
                 source_loss.backward()
           source_loss_value = source_loss.data[0]
           #del source_loss
     if (len(target_input_list) > 0):
-          target_input_var = torch.autograd.Variable(targetInput.cuda())
-          target_label_var = torch.autograd.Variable(targetLabel)
+          target_input_var = targetInput.cuda()
+          target_label_var = targetLabel
           model.set_domain(source=False)
           target_output = model(target_input_var)
-          target_loss = ShapeConsistencyCriterion(nViews, supWeight = 1, unSupWeight = args.shapeWeight, M = M)(target_output.cpu(), target_label_var, torch.autograd.Variable(targetMeta))
+          target_loss = ShapeConsistencyCriterion(nViews, supWeight = 1, unSupWeight = args.shapeWeight, M = M)(target_output.cpu(), target_label_var, targetMeta)
           if split == 'train':
                 target_loss.backward()
           target_loss_value = target_loss.data[0]
@@ -171,9 +172,6 @@ def dial_step(args, split, epoch, (loader, len_loader), model, optimizer = None,
       
   bar.finish()
   return mpjpe.avg, losses.avg, shapeLosses.avg
-
-def dial_train(args, train_loader, model, optimizer, M, epoch, dial=False, nViews=ref.nViews):
-      return dial_step(args, 'train', epoch, train_loader, model, optimizer, M = M, dial=dial)
 
 def train(args, train_loader, model, optimizer, M, epoch, dial=False, nViews=ref.nViews):
   return step(args, 'train', epoch, train_loader, model, optimizer, M = M, dial=dial)
