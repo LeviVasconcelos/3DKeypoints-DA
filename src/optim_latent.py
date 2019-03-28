@@ -24,11 +24,13 @@ def createDirIfNonExistent(path):
 def getY(dataset):
   N = dataset.nImages
   Y = np.zeros((N, ref.J, 3))
+  Y_raw = np.zeros((N, ref.J, 3))
   for i in range(N):
     y = dataset.annot[i, 0].copy()
     rotY, rotZ = dataset.meta[i, 0, 3:5].copy() / 180. * np.arccos(-1)
     Y[i] = np.dot(np.dot(RotMat('Z', rotZ), RotMat('Y', rotY)), y.transpose(1, 0)).transpose(1, 0)
-  return Y
+    Y_raw[i] = y.copy()
+  return Y, Y_raw
   
 def initLatent(loader, model, Y, nViews, S, AVG = False, dial=False):
   model.eval()

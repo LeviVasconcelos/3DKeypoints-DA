@@ -152,8 +152,9 @@ def main():
 	    print 'getY...'
 	    if args.dialModel:
 	      model.set_domain(source=False)
-	    Y = getY(SourceDataset('train', args.nViews))
+	    Y, Y_raw = getY(SourceDataset('train', args.nViews))
         np.save('RotatedY-' + args.sourceDataset + '.npy', Y)
+        np.save('RotatedYRaw-' + args.sourceDataset + '.npy', Y_raw)
         print 'RotatedY-' + args.sourceDataset + '.npy' + ' Was saved...'
 	    M = initLatent(trainTarget_loader, model, Y, nViews = args.nViews, S = args.sampleSource, AVG = args.AVG, dial=DIAL)
 
