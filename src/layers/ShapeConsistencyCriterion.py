@@ -15,7 +15,7 @@ class ShapeConsistencyCriterion(Function):
   def forward(self, input, target_, meta_):
     target = target_.numpy()
     G = target.shape[0] / self.nViews
-    points = input.detach_().cpu().numpy().astype(np.float32)
+    points = input.detach().cpu().numpy().astype(np.float32)
     points = points.reshape(G, self.nViews, ref.J, 3)
     target = target.reshape(G, self.nViews, ref.J, 3)
     meta = meta_.numpy().reshape(G, self.nViews, ref.metaDim)
@@ -44,13 +44,6 @@ class ShapeConsistencyCriterion(Function):
     self.save_for_backward(input, target_, meta_)
     return torch.ones(1) * output
 
-
-
-
-
-
-
-
   def backward(self, grad_output):
     input, target_, meta_ = self.saved_tensors
     grad_input = torch.zeros(input.shape)
@@ -71,7 +64,7 @@ class ShapeConsistencyCriterion(Function):
         for v in range(self.nViews):
 	  temp = grad_output[0] * self.supWeight * 2 * torch.from_numpy(points[g, v] - target[g, v]) / ref.J / 3 / self.nViews / G 
           grad_input[g * self.nViews + v] += temp.view(-1)
-    return grad_input.cuda(), None, None
+    return grad_input, None, None
 
 
 

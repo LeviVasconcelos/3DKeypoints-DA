@@ -192,10 +192,10 @@ def eval_step(args, split, epoch, loader, model, loss, update=True, optimizer = 
 
 
 
-def train(args, train_loader, model, loss, update_bn, logger, optimizer, epoch, nViews=ref.nViews, threshold = 0.9):
+def train_priors(args, train_loader, model, loss, update_bn, logger, optimizer, epoch, nViews=ref.nViews, threshold = 0.9):
   return train_step(args, 'train', epoch, train_loader[0], model, loss, update_bn, logger, optimizer, threshold=threshold)
 
-def validate(args, supTag, val_loader, model, loss, epoch,plot_img=False, logger=None):
+def validate_priors(args, supTag, val_loader, model, loss, epoch,plot_img=False, logger=None):
   return eval_step(args, 'val' + supTag, epoch, val_loader, model,loss,plot_img = plot_img, logger = logger)
 
 def test(args, loader, model, loss,plot_img=False, logger=None):
