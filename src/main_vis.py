@@ -139,17 +139,17 @@ def main():
       if not args.shapeConsistency:
             valSource_mpjpe, valSource_shape,  valSource_loss, valSource_unSuploss = validate_priors(args, 'Source', valSource_loader, model, prior_loss, 0)
             valTarget_mpjpe, valTarget_shape, valTarget_loss, valTarget_unSuploss = validate_priors(args, 'Target', valTarget_loader, model, prior_loss, 0, plot_img=True, logger=logger)
-      logger.add_scalar('val/source-accuracy', valSource_mpjpe, 0)
-      logger.add_scalar('val/target-accuracy', valTarget_mpjpe, 0)
-
-      logger.add_scalar('val/target-accuracy', valTarget_mpjpe, 0)
-      logger.add_scalar('val/target-accuracy-shape', valTarget_shape, 0)
-
-      logger.add_scalar('val/source-regr-loss', valSource_loss, 0)
-      logger.add_scalar('val/target-regr-loss', valTarget_loss, 0)
-        
-      logger.add_scalar('val/source-prior-loss', valSource_unSuploss, 0)
-      logger.add_scalar('val/target-prior-loss', valTarget_unSuploss, 0)
+            logger.add_scalar('val/source-accuracy', valSource_mpjpe, 0)
+            logger.add_scalar('val/target-accuracy', valTarget_mpjpe, 0)
+            
+            logger.add_scalar('val/target-accuracy', valTarget_mpjpe, 0)
+            logger.add_scalar('val/target-accuracy-shape', valTarget_shape, 0)
+            
+            logger.add_scalar('val/source-regr-loss', valSource_loss, 0)
+            logger.add_scalar('val/target-regr-loss', valTarget_loss, 0)
+            
+            logger.add_scalar('val/source-prior-loss', valSource_unSuploss, 0)
+            logger.add_scalar('val/target-prior-loss', valTarget_unSuploss, 0)
 
 
       M = None
@@ -184,19 +184,20 @@ def main():
                   valTarget_mpjpe, valTarget_loss, valTarget_unSuploss = validate(args, 'Target', valTarget_loader, model, None, epoch)
             else:
                   train_priors(args, [trainTarget_loader], model, prior_loss, args.batch_norm, logger, optimizer, epoch-1, threshold = args.threshold)
-            
-            if epoch % 2 == 0:
-                  valTarget_mpjpe, valTarget_shape, valTarget_loss, valTarget_unSuploss = validate_priors(args, 'Target', valTarget_loader, model, prior_loss, epoch, plot_img=True, logger=logger)
-                  logger.add_scalar('val/target-accuracy', valTarget_mpjpe, epoch)
-                  logger.add_scalar('val/target-accuracy-shape', valTarget_shape, epoch)
-                  logger.add_scalar('val/target-regr-loss', valTarget_loss, epoch)
-                  logger.add_scalar('val/target-prior-loss', valTarget_unSuploss, epoch)
                   
-            if epoch % 5 == 0:
-                  valSource_mpjpe, valSource_shape, valSource_loss, valSource_unSuploss = validate_priors(args, 'Source', valSource_loader, model, prior_loss, epoch)
-                  logger.add_scalar('val/source-accuracy', valSource_mpjpe, epoch)
-                  logger.add_scalar('val/source-prior-loss', valSource_unSuploss, epoch)
-                  logger.add_scalar('val/source-regr-loss', valSource_loss, epoch)
+                  if epoch % 2 == 0:
+                        valTarget_mpjpe, valTarget_shape, valTarget_loss, valTarget_unSuploss = validate_priors(args, 'Target', valTarget_loader, model, prior_loss, epoch, plot_img=True, logger=logger)
+                        logger.add_scalar('val/target-accuracy', valTarget_mpjpe, epoch)
+                        logger.add_scalar('val/target-accuracy-shape', valTarget_shape, epoch)
+                        logger.add_scalar('val/target-regr-loss', valTarget_loss, epoch)
+                        logger.add_scalar('val/target-prior-loss', valTarget_unSuploss, epoch)
+                  
+                  if epoch % 5 == 0:
+                        valSource_mpjpe, valSource_shape, valSource_loss, valSource_unSuploss = validate_priors(args, 'Source', valSource_loader, model, prior_loss, epoch)
+                        logger.add_scalar('val/source-accuracy', valSource_mpjpe, epoch)
+                        logger.add_scalar('val/source-prior-loss', valSource_unSuploss, epoch)
+                        logger.add_scalar('val/source-regr-loss', valSource_loss, epoch)
+                        
             if epoch % 10 == 0:
                   torch.save({
                               'epoch': epoch + 1,
