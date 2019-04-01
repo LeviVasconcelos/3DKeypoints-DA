@@ -1,7 +1,8 @@
 
 import torch
 import numpy as np
-from utils.utils import AverageMeter, show3D
+from utils.utils import AverageMeter
+from utils.visualization import chair_show3D, chair_show2D
 from utils.eval import accuracy, shapeConsistency, accuracy_dis
 import cv2
 import ref
@@ -16,7 +17,7 @@ meta shape:torch.Size([64, 15])
 
 __DEBUG = False
 
-def step(args, split, epoch, loader, model, optimizer = None, M = None, f = None, tag = None, dial=False, nViews=ref.nViews):
+def step(args, split, epoch, loader, model, optimizer = None, M = None, f = None, tag = None, dial=False, nViews=ref.nViews, visualize=False):
   losses, mpjpe, mpjpe_r = AverageMeter(), AverageMeter(), AverageMeter()
   viewLosses, shapeLosses, supLosses = AverageMeter(), AverageMeter(), AverageMeter()
   
@@ -30,6 +31,7 @@ def step(args, split, epoch, loader, model, optimizer = None, M = None, f = None
   if dial:
     print 'dial activated (from train function)'
     model.eval()
+  numpy_imgs = None
   for i, (input, target, meta) in enumerate(loader):
     if __DEBUG:
       print "input shape:" + str(input.size())
@@ -41,7 +43,7 @@ def step(args, split, epoch, loader, model, optimizer = None, M = None, f = None
     output = model(input_var)
     loss = ShapeConsistencyCriterion(nViews, supWeight = 1, unSupWeight = args.shapeWeight, M = M)(output.cpu(), target_var, meta)
 
-    if split == 'test':
+    '''if split == 'test':
       for j in range(input.numpy().shape[0]):
         img = (input.numpy()[j] * 255).transpose(1, 2, 0).astype(np.uint8)
         cv2.imwrite('{}/img_{}/{}.png'.format(args.save_path, tag, i * input.numpy().shape[0] + j), img)
@@ -57,7 +59,22 @@ def step(args, split, epoch, loader, model, optimizer = None, M = None, f = None
         if args.saveVis:
           for t in range(ref.J):
             f.write('{} 0 0 '.format(vis[t]))
-          f.write('\n')
+          f.write('\n')'''
+    if visualize:
+          numpy_img = (input.numpy()[0] * 255).transpose(1, 2, 0).astype(np.uint8)
+          if i < 10:
+                pred = output.data.cpu().numpy()[0].copy()
+                gt = target.data.cpu().numpy()[0].copy()
+                numpy_img = chair_show2D(numpy_img, pred, 'r')
+                numpy_img = chair_show2D(numpy_img, gt, 'b')
+                ax = fig.add_subplot((111), projection='3d')
+                chair_show3D(ax, pred, 'r')
+                chair_show3D(ax, gt, 'b')
+                #TODO: make it directly to numpy to avoid disk IO
+                filename_3d = os.path.join(args.save_path, 'img_%s_%d_%d.png' % (args.expID, i, epoch))
+                plt.savefig(filename_3d)
+                logger.add_image('Image 3D ' + str(i), (np.asarray(Image.open(filename_3d))).transpose(2,0,1), epoch)
+                logger.add_image('Image 2D ' + str(i), numpy_img)
 
     mpjpe_this = accuracy(output.data, target, meta)
     mpjpe_r_this = accuracy_dis(output.data, target, meta)
@@ -176,8 +193,8 @@ def dial_step(args, split, epoch, (loader, len_loader), model, optimizer = None,
 def train(args, train_loader, model, optimizer, M, epoch, dial=False, nViews=ref.nViews):
   return step(args, 'train', epoch, train_loader, model, optimizer, M = M, dial=dial)
 
-def validate(args, supTag, val_loader, model, M, epoch):
-  return step(args, 'val' + supTag, epoch, val_loader, model, M = M)
+def validate(args, supTag, val_loader, model, M, epoch, visualize=False):
+  return step(args, 'val' + supTag, epoch, val_loader, model, M = M, visualize=visualize)
 
 def test(args, loader, model, M, f, tag):
   return step(args, 'test', 0, loader, model, M = M, f = f, tag = tag)
