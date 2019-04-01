@@ -150,6 +150,16 @@ def main():
             
             logger.add_scalar('val/source-prior-loss', valSource_unSuploss, 0)
             logger.add_scalar('val/target-prior-loss', valTarget_unSuploss, 0)
+      else:
+            valTarget_mpjpe, valTarget_loss, valTarget_unSuploss = validate(args, 'Target', valTarget_loader, model, None, epoch, visualize=True)
+            logger.add_scalar('val/target-accuracy', valTarget_mpjpe, epoch)
+            logger.add_scalar('val/target-regr-loss', valTarget_loss, epoch)
+            logger.add_scalar('val/target-prior-loss', valTarget_unSuploss, epoch)
+            valSource_mpjpe, valSource_loss, valSource_unSuploss = validate(args, 'Source', valSource_loader, model, None, epoch)
+            logger.add_scalar('val/source-accuracy', valTarget_mpjpe, epoch)
+            logger.add_scalar('val/source-regr-loss', valTarget_loss, epoch)
+            logger.add_scalar('val/source-prior-loss', valTarget_unSuploss, epoch)
+
 
 
       M = None

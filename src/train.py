@@ -65,8 +65,8 @@ def step(args, split, epoch, loader, model, optimizer = None, M = None, f = None
           if i < 10:
                 pred = output.data.cpu().numpy()[0].copy()
                 gt = target.data.cpu().numpy()[0].copy()
-                numpy_img = chair_show2D(numpy_img, pred, 'r')
-                numpy_img = chair_show2D(numpy_img, gt, 'b')
+                numpy_img = chair_show2D(numpy_img, pred, (255,0,0))
+                numpy_img = chair_show2D(numpy_img, gt, (0,0,255))
                 ax = fig.add_subplot((111), projection='3d')
                 chair_show3D(ax, pred, 'r')
                 chair_show3D(ax, gt, 'b')
