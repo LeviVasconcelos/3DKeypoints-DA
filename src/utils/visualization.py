@@ -49,6 +49,7 @@ def chair_show3D(ax, points, c = (255, 0, 0), edges = chair_edges, J = ref.J):
         
 def chair_show2D(img, points, c, edges = chair_edges, J = ref.J):
   points = ((points.reshape(J, 3) + 0.5) * S).astype(np.int32)
+  print(points.shape)
   points[:, 0], points[:, 1] = points[:, 1].copy(), points[:, 0].copy()  
   for j in range(J):
     cv2.circle(img, (points[j, 0], points[j, 1]), 3, c, -1)

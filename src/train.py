@@ -67,6 +67,8 @@ def step(args, split, epoch, loader, model, optimizer = None, M = None, f = None
           f.write('\n')'''
     if visualize:
           numpy_img = (input.numpy()[0] * 255).transpose(1, 2, 0).astype(np.uint8)
+          #filename_2d = os.path.join(args.save_path, 'img2d_%s_%d_%d.png' % (args.expID, i, epoch))
+          #cv2.imwrite(filename_2d, numpy_img)
           if i < 10:
                 pred = output.data.cpu().numpy()[0].copy()
                 gt = target.data.cpu().numpy()[0].copy()
