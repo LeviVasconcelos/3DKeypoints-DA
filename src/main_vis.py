@@ -180,10 +180,10 @@ def main():
                   if args.shapeWeight > ref.eps and epoch % args.intervalUpdateM == 0:
                         M = stepLatent(trainTarget_loader, model, M, Y, nViews = args.nViews, lamb = args.lamb, mu = args.mu, S = args.sampleSource, call_count=call_count, dial=DIAL)
                         call_count += 1
+                  valSource_mpjpe, valSource_loss, valSource_unSuploss = validate(args, 'Source', valSource_loader, model, None, epoch)
+                  valTarget_mpjpe, valTarget_loss, valTarget_unSuploss = validate(args, 'Target', valTarget_loader, model, None, epoch)
             else:
                   train_priors(args, [trainTarget_loader], model, prior_loss, args.batch_norm, logger, optimizer, epoch-1, threshold = args.threshold)
-            valSource_mpjpe, valSource_loss, valSource_unSuploss = validate(args, 'Source', valSource_loader, model, None, epoch)
-            valTarget_mpjpe, valTarget_loss, valTarget_unSuploss = validate(args, 'Target', valTarget_loader, model, None, epoch)
             
             if epoch % 2 == 0:
                   valTarget_mpjpe, valTarget_shape, valTarget_loss, valTarget_unSuploss = validate_priors(args, 'Target', valTarget_loader, model, prior_loss, epoch, plot_img=True, logger=logger)
