@@ -136,9 +136,9 @@ def main():
       trainSource_loader = torch.utils.data.DataLoader(
           trainSource_dataset, batch_size=args.batchSize, shuffle=True,
           num_workers=args.workers if not args.test else 1, pin_memory=True, collate_fn=collate_fn_cat)
-
-      valSource_mpjpe, valSource_shape,  valSource_loss, valSource_unSuploss = validate_priors(args, 'Source', valSource_loader, model, prior_loss, 0)
-      valTarget_mpjpe, valTarget_shape, valTarget_loss, valTarget_unSuploss = validate_priors(args, 'Target', valTarget_loader, model, prior_loss, 0, plot_img=True, logger=logger)
+      if not args.shapeConstistency:
+            valSource_mpjpe, valSource_shape,  valSource_loss, valSource_unSuploss = validate_priors(args, 'Source', valSource_loader, model, prior_loss, 0)
+            valTarget_mpjpe, valTarget_shape, valTarget_loss, valTarget_unSuploss = validate_priors(args, 'Target', valTarget_loader, model, prior_loss, 0, plot_img=True, logger=logger)
       logger.add_scalar('val/source-accuracy', valSource_mpjpe, 0)
       logger.add_scalar('val/target-accuracy', valTarget_mpjpe, 0)
 
