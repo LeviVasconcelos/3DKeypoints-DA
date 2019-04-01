@@ -71,15 +71,17 @@ def step(args, split, epoch, loader, model, optimizer = None, M = None, f = None
                 gt = target.data.cpu().numpy()[0].copy()
                 numpy_img = chair_show2D(numpy_img, pred, (255,0,0))
                 numpy_img = chair_show2D(numpy_img, gt, (0,0,255))
+                filename_2d = os.path.join(args.save_path, 'img2d_%s_%d_%d.png' % (args.expID, i, epoch))
+                cv2.imwrite(filename_2d, numpy_img)
                 fig = plt.figure()
                 ax = fig.add_subplot((111), projection='3d')
                 chair_show3D(ax, pred, 'r')
                 chair_show3D(ax, gt, 'b')
                 #TODO: make it directly to numpy to avoid disk IO
-                filename_3d = os.path.join(args.save_path, 'img_%s_%d_%d.png' % (args.expID, i, epoch))
+                filename_3d = os.path.join(args.save_path, 'img3d_%s_%d_%d.png' % (args.expID, i, epoch))
                 plt.savefig(filename_3d)
                 logger.add_image('Image 3D ' + str(i), (np.asarray(Image.open(filename_3d))).transpose(2,0,1), epoch)
-                logger.add_image('Image 2D ' + str(i), numpy_img)
+                logger.add_image('Image 2D ' + str(i), (np.asarray(Image.open(filename_2d))).transpose(2,0,1), epoch)
 
     mpjpe_this = accuracy(output.data, target, meta)
     mpjpe_r_this = accuracy_dis(output.data, target, meta)
@@ -199,7 +201,7 @@ def train(args, train_loader, model, optimizer, M, epoch, dial=False, nViews=ref
   return step(args, 'train', epoch, train_loader, model, optimizer, M = M, dial=dial)
 
 def validate(args, supTag, val_loader, model, M, epoch, visualize=False, logger=None):
-  return step(args, 'val' + supTag, epoch, val_loader, model, M = M, visualize=visualize)
+  return step(args, 'val' + supTag, epoch, val_loader, model, M = M, visualize=visualize, logger=logger)
 
 def test(args, loader, model, M, f, tag):
   return step(args, 'test', 0, loader, model, M = M, f = f, tag = tag)
