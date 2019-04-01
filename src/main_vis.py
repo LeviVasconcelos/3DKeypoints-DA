@@ -63,7 +63,8 @@ splits = ['train', 'valSource', 'valTarget']
 kHumansDataset = ['HumansRGB', 'HumansDepth']
 DIAL = args.approx_dial
 def main():
-  for run in range(1,args.runs+1):
+  total_runs = args.runs if not args.test else 1
+  for run in range(total_runs):
       logger = SummaryWriter(args.logDir+'-run'+str(run))
 
       # Init model
