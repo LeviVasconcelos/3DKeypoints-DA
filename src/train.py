@@ -4,6 +4,7 @@ import numpy as np
 from utils.utils import AverageMeter
 from utils.visualization import chair_show3D, chair_show2D
 from utils.eval import accuracy, shapeConsistency, accuracy_dis
+import matplotlib.pyplot as plt
 mpl.use('Agg')
 import matplotlib.pyplot as plt
 import os
