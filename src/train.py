@@ -4,8 +4,10 @@ import numpy as np
 from utils.utils import AverageMeter
 from utils.visualization import chair_show3D, chair_show2D
 from utils.eval import accuracy, shapeConsistency, accuracy_dis
+mpl.use('Agg')
 import matplotlib.pyplot as plt
 import os
+from PIL import Image
 import cv2
 import ref
 from progress.bar import Bar
