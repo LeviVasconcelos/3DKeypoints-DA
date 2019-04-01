@@ -43,7 +43,7 @@ class Humans36mDataset(data.Dataset):
             self.rgb = rgb
             self.nViews = nViews if self.rgb else 1
             self.split = split
-            self.kTrainSplit = 1
+            self.kTrainSplit = 5
             self.metadata = H36M_Metadata(os.path.join(self.root_dir, 'metadata.xml'))
             self.imagesPerSubject = nPerSubject
             self.kBlacklist = { 
@@ -207,16 +207,17 @@ class Humans36mDataset(data.Dataset):
             
             for k in range(self.nViews):
                   imgs[k] = self._load_image(idx, k).astype(np.float32)
-                  annots[k] = self._get_ref(idx)['Annot']['3d-norm'][k].copy()
-                  mono_pose3d[k] = self._get_ref(idx)['Annot']['3d'][k].copy()
-                  univ_pose3d[k] = self._get_ref(idx)['Annot']['3d-univ'][k].copy()
-                  orig_pose3d[k] = self._get_ref(idx)['Annot']['3d-orignial'][k].copy()
-                  pose_2d += [self._get_ref(idx)['Annot']['2d'][k].copy()]
-                  intrinsics += [self._get_ref(idx)['Annot']['intrinsic'][k].copy()]
+                  annots[k] = self._get_ref(idx)['Annot']['3d'][k].copy()
+                  #annots[k] = self._get_ref(idx)['Annot']['3d-norm'][k].copy()
+                  #mono_pose3d[k] = self._get_ref(idx)['Annot']['3d'][k].copy()
+                  #univ_pose3d[k] = self._get_ref(idx)['Annot']['3d-univ'][k].copy()
+                  #orig_pose3d[k] = self._get_ref(idx)['Annot']['3d-orignial'][k].copy()
+                  #pose_2d += [self._get_ref(idx)['Annot']['2d'][k].copy()]
+                  #intrinsics += [self._get_ref(idx)['Annot']['intrinsic'][k].copy()]
                   meta[k] = self.meta[idx, k]
             imgs = imgs.transpose(0, 3, 1, 2) / 255.
             inp = torch.from_numpy(imgs)
-            return inp, annots, meta, mono_pose3d, univ_pose3d, orig_pose3d, intrinsics, pose_2d
+            return inp, annots, meta #, mono_pose3d, univ_pose3d, orig_pose3d, intrinsics, pose_2d
       
       def __len__(self):
             return self.len
