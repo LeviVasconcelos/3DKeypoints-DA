@@ -127,7 +127,7 @@ def main():
 
       fusion_loader = torch.utils.data.DataLoader(
               train_dataset, batch_size=args.batchSize, shuffle=not args.test,
-              num_workers=args.workers if not args.test else 1, pin_memory=False, collate_fn=collate_fn_cat)      
+              num_workers=args.workers if not args.test else 1, pin_memory=False, collate_fn=collate_fn_cat)
       trainTarget_loader = torch.utils.data.DataLoader(
               trainTarget_dataset, batch_size=args.batchSize, shuffle=True,
               num_workers=args.workers if not args.test else 1, pin_memory=True, collate_fn=collate_fn_cat)
@@ -151,7 +151,7 @@ def main():
             logger.add_scalar('val/source-prior-loss', valSource_unSuploss, 0)
             logger.add_scalar('val/target-prior-loss', valTarget_unSuploss, 0)
       else:
-            valTarget_mpjpe, valTarget_loss, valTarget_unSuploss = validate(args, 'Target', valTarget_loader, model, None, 0, visualize=True)
+            valTarget_mpjpe, valTarget_loss, valTarget_unSuploss = validate(args, 'Target', valTarget_loader, model, None, 0, visualize=True, logger=logger)
             logger.add_scalar('val/target-accuracy', valTarget_mpjpe, epoch)
             logger.add_scalar('val/target-regr-loss', valTarget_loss, epoch)
             logger.add_scalar('val/target-prior-loss', valTarget_unSuploss, epoch)
@@ -191,7 +191,7 @@ def main():
                         M = stepLatent(trainTarget_loader, model, M, Y, nViews = args.nViews, lamb = args.lamb, mu = args.mu, S = args.sampleSource, call_count=call_count, dial=DIAL)
                         call_count += 1
                   if epoch % 2 == 0:
-                        valTarget_mpjpe, valTarget_loss, valTarget_unSuploss = validate(args, 'Target', valTarget_loader, model, None, epoch, visualize=True)
+                        valTarget_mpjpe, valTarget_loss, valTarget_unSuploss = validate(args, 'Target', valTarget_loader, model, None, epoch, visualize=True, logger=logger)
                         logger.add_scalar('val/target-accuracy', valTarget_mpjpe, epoch)
                         logger.add_scalar('val/target-regr-loss', valTarget_loss, epoch)
                         logger.add_scalar('val/target-prior-loss', valTarget_unSuploss, epoch)

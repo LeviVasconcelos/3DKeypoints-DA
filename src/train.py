@@ -4,6 +4,8 @@ import numpy as np
 from utils.utils import AverageMeter
 from utils.visualization import chair_show3D, chair_show2D
 from utils.eval import accuracy, shapeConsistency, accuracy_dis
+import matplotlib.pyplot as plt
+import os
 import cv2
 import ref
 from progress.bar import Bar
@@ -17,7 +19,7 @@ meta shape:torch.Size([64, 15])
 
 __DEBUG = False
 
-def step(args, split, epoch, loader, model, optimizer = None, M = None, f = None, tag = None, dial=False, nViews=ref.nViews, visualize=False):
+def step(args, split, epoch, loader, model, optimizer = None, M = None, f = None, tag = None, dial=False, nViews=ref.nViews, visualize=False, logger=None):
   losses, mpjpe, mpjpe_r = AverageMeter(), AverageMeter(), AverageMeter()
   viewLosses, shapeLosses, supLosses = AverageMeter(), AverageMeter(), AverageMeter()
   
@@ -194,7 +196,7 @@ def dial_step(args, split, epoch, (loader, len_loader), model, optimizer = None,
 def train(args, train_loader, model, optimizer, M, epoch, dial=False, nViews=ref.nViews):
   return step(args, 'train', epoch, train_loader, model, optimizer, M = M, dial=dial)
 
-def validate(args, supTag, val_loader, model, M, epoch, visualize=False):
+def validate(args, supTag, val_loader, model, M, epoch, visualize=False, logger=None):
   return step(args, 'val' + supTag, epoch, val_loader, model, M = M, visualize=visualize)
 
 def test(args, loader, model, M, f, tag):
