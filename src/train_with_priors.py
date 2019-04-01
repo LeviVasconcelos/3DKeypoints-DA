@@ -23,17 +23,11 @@ import copy
 import mpl_toolkits.mplot3d
 from mpl_toolkits.mplot3d import Axes3D
 
-EDGES = [
-	(0,1), (1,2), (2,3), (4,5), 
-	(0,7),(7,8),(8,9),(9,10),
-	(17,18),(18,19),(19,20),(20,21),(21,22),(22,23),
-	(25,26),(26,27),(27,28),(28,29),(29,30),(30,31),]
 
 
-#EDGES = [(0,1),(0,2),(1,3),(2,3),(2,4),(2,6),(3,5),(3,7),(4,5),(4,8),(5,9)]
 
-J = 32
-edges = [[a,b] for (a,b) in EDGES] #[[0, 1], [0, 2], [1, 3], [2, 3], [2, 4], [3, 5], [4, 5],    [4, 8], [5, 9], [3, 7], [2, 6]]
+J = ref.J
+edges = ref.edges 
 S = 224
 
 def show3D(ax, points, c = (255, 0, 0)):
@@ -121,17 +115,14 @@ def compute_images3D(img, pred, gt, index):
 
 
 def train_step(args, split, epoch, loader, model, loss, update_bn=True, logger=None, optimizer = None, M = None, f = None, nViews=ref.nViews,device='cuda', threshold = 0.9):
-  losses, mpjpe, mpjpe_r = AverageMeter(), AverageMeter(), AverageMeter()
-  viewLosses, shapeLosses, supLosses = AverageMeter(), AverageMeter(), AverageMeter()
-  
   prior_loss = []
 
   if update_bn>0:
-	print('Epoch: ' + str(epoch+1)+ ': unsupervised training with BN')
-  	model.train()
+    print('Epoch: ' + str(epoch+1)+ ': unsupervised training with BN')
+    model.train()
   else:
-	print('Epoch: ' + str(epoch+1)+ ': unsupervised training without BN')
-	model.eval()
+    print('Epoch: ' + str(epoch+1)+ ': unsupervised training without BN')
+    model.eval()
 
   idx_0 = len(loader)*epoch
 
@@ -157,17 +148,12 @@ def train_step(args, split, epoch, loader, model, loss, update_bn=True, logger=N
 
 
 def eval_step(args, split, epoch, loader, model, loss, update=True, optimizer = None, M = None, f = None, nViews=ref.nViews, plot_img = False, logger = None,device='cuda'):
-  losses, mpjpe, mpjpe_r = AverageMeter(), AverageMeter(), AverageMeter()
-  viewLosses, shapeLosses, supLosses = AverageMeter(), AverageMeter(), AverageMeter()
-  
   prior_loss = []
   regr_loss = []
   accuracy_this = []
   accuracy_shape = []
 
   model.eval()
-
-  idx_0 = len(loader)*epoch
 
   for i, (input, target, meta) in enumerate(loader):
     input_var = input.to(device)
@@ -184,13 +170,12 @@ def eval_step(args, split, epoch, loader, model, loss, update=True, optimizer = 
     regr_loss.append(cr_regr_loss.item())
     cr_loss = loss(output).mean()
     if plot_img and i<10:
-			img = (input.numpy()[0] * 255).transpose(1, 2, 0).astype(np.uint8)
-			cv2.imwrite('./tmp/'+str(i)+'01.png', img)
-			gt = target.cpu().numpy()[0]
-			pred = (output.data).cpu().numpy()[0]
-			p3d = compute_images3D(cv2.imread('./tmp/'+str(i)+'01.png'),pred,gt, str(i))
-	 		logger.add_image('Image 3D ' +str(i), (np.asarray(Image.open(p3d))).transpose(2,0,1), epoch)
-
+          img = (input.numpy()[0] * 255).transpose(1, 2, 0).astype(np.uint8)
+          cv2.imwrite('./tmp/'+str(i)+'01.png', img)
+          gt = target.cpu().numpy()[0]
+          pred = (output.data).cpu().numpy()[0]
+          p3d = compute_images3D(cv2.imread('./tmp/'+str(i)+'01.png'),pred,gt, str(i))
+          logger.add_image('Image 3D ' +str(i), (np.asarray(Image.open(p3d))).transpose(2,0,1), epoch)
     prior_loss.append(cr_loss.item())
 
   return np.array(accuracy_this).mean(),np.array(accuracy_shape).mean(), np.array(regr_loss).mean(), np.array(prior_loss).mean()
@@ -198,10 +183,10 @@ def eval_step(args, split, epoch, loader, model, loss, update=True, optimizer = 
 
 
 
-def train(args, train_loader, model, loss, update_bn, logger, optimizer, epoch, nViews=ref.nViews, threshold = 0.9):
+def train_priors(args, train_loader, model, loss, update_bn, logger, optimizer, epoch, nViews=ref.nViews, threshold = 0.9):
   return train_step(args, 'train', epoch, train_loader[0], model, loss, update_bn, logger, optimizer, threshold=threshold)
 
-def validate(args, supTag, val_loader, model, loss, epoch,plot_img=False, logger=None):
+def validate_priors(args, supTag, val_loader, model, loss, epoch,plot_img=False, logger=None):
   return eval_step(args, 'val' + supTag, epoch, val_loader, model,loss,plot_img = plot_img, logger = logger)
 
 def test(args, loader, model, loss,plot_img=False, logger=None):
