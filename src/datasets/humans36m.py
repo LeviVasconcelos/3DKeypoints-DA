@@ -43,7 +43,7 @@ class Humans36mDataset(data.Dataset):
             self.rgb = rgb
             self.nViews = nViews if self.rgb else 1
             self.split = split
-            self.kTrainSplit = 5
+            self.kTrainSplit = 1
             self.metadata = H36M_Metadata(os.path.join(self.root_dir, 'metadata.xml'))
             self.imagesPerSubject = nPerSubject
             self.kBlacklist = { 
@@ -66,7 +66,7 @@ class Humans36mDataset(data.Dataset):
             self._build_indexes()
             self._build_access_index()
             self._build_meta()
-            print('Dataset Loaded: split [%s], len[%d], views[%d], rgb[%s]' % (self.split, self.len, self.nViews, 'True' if self.rgb else 'False'))
+            print('**Dataset Loaded: split [%s], len[%d], views[%d], rgb[%s]' % (self.split, self.len, self.nViews, 'True' if self.rgb else 'False'))
             
       
       def _build_meta(self):
@@ -98,7 +98,23 @@ class Humans36mDataset(data.Dataset):
                   bbox = file['bbox'].value
                   pose2d = file['pose/2d'].value
                   cameras = file['camera'].value
-                  index = [{'Views': [], 'Annot': {'3d-norm': [], 'bbox': [], '2d': []}, 'TOF': []}.copy() for i in range(len(unique_frames))]
+                  pose3d = file['pose/3d'].value
+                  pose3d_univ = file['pose/3d-univ'].value
+                  pose3d_original = file['pose/3d-original'].value
+                  intrinsic = file['intrinsics']
+                  instrinsic_univ = file['intrinsics-univ']
+                  index = [{'Views': [], 
+                            'Annot': {
+                                        '3d-norm': [], 
+                                        'bbox': [], 
+                                        '2d': [], 
+                                        '3d':[], 
+                                        'intrinsic':[], 
+                                        'instrinsic-univ':[],
+                                        '3d-univ' : [],
+                                        '3d-orignial' : [],
+                                        }, 
+                            'TOF': []}.copy() for i in range(len(unique_frames))]
                   mapping = { f:i for i,f in enumerate(unique_frames) }
                   #print(pose3d_norm.shape)
                   try:
@@ -111,6 +127,12 @@ class Humans36mDataset(data.Dataset):
                               index[k]['Annot']['3d-norm'] += [pose3d_norm[i]-np.mean(pose3d_norm[i],0)]
                               index[k]['Annot']['bbox'] += [bbox[i]]
                               index[k]['Annot']['2d'] += [pose2d[i]]
+                              index[k]['Annot']['3d'] += [pose3d[i]]
+                              index[k]['Annot']['3d-univ'] += [pose3d_univ[i]]
+                              #cam = intrinsic[str(cameras[i])].value
+                              index[k]['Annot']['intrinsic'] += [intrinsic[str(cameras[i])].value]
+                              index[k]['Annot']['instrinsic-univ'] = [instrinsic_univ[str(cameras[i])].value]
+                              index[k]['Annot']['3d-orignial'] += [pose3d_original[i]]
                               if len(index[k]['TOF']) == 0:
                                     index[k]['TOF'] = [os.path.join(tof_folder, tof_filename)]
                   except IndexError as e:
@@ -176,17 +198,25 @@ class Humans36mDataset(data.Dataset):
             #print(idx, self.access_order[idx])
             imgs = np.zeros((self.nViews, 224, 224, 3), dtype=np.float32)
             annots = np.zeros((self.nViews, 32, 3), dtype=np.float32)
+            mono_pose3d =  np.zeros((self.nViews, 32, 3), dtype=np.float32)
+            univ_pose3d = np.zeros((self.nViews, 32, 3), dtype=np.float32)
+            orig_pose3d = np.zeros((self.nViews, 32, 3), dtype=np.float32)
             meta = np.zeros((self.nViews, ref.metaDim))
-            #pose_2d = []
+            pose_2d = []
+            intrinsics = []
             
             for k in range(self.nViews):
                   imgs[k] = self._load_image(idx, k).astype(np.float32)
                   annots[k] = self._get_ref(idx)['Annot']['3d-norm'][k].copy()
-                  #pose_2d += [self._get_ref(idx)['Annot']['2d'][k].copy()]
+                  mono_pose3d[k] = self._get_ref(idx)['Annot']['3d'][k].copy()
+                  univ_pose3d[k] = self._get_ref(idx)['Annot']['3d-univ'][k].copy()
+                  orig_pose3d[k] = self._get_ref(idx)['Annot']['3d-orignial'][k].copy()
+                  pose_2d += [self._get_ref(idx)['Annot']['2d'][k].copy()]
+                  intrinsics += [self._get_ref(idx)['Annot']['intrinsic'][k].copy()]
                   meta[k] = self.meta[idx, k]
             imgs = imgs.transpose(0, 3, 1, 2) / 255.
             inp = torch.from_numpy(imgs)
-            return inp, annots, meta
+            return inp, annots, meta, mono_pose3d, univ_pose3d, orig_pose3d, intrinsics, pose_2d
       
       def __len__(self):
             return self.len
