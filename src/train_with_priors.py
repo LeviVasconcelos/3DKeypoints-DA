@@ -26,7 +26,7 @@ from mpl_toolkits.mplot3d import Axes3D
 
 
 
-
+J = ref.J
 edges = ref.edges 
 S = 224
 
@@ -115,17 +115,14 @@ def compute_images3D(img, pred, gt, index):
 
 
 def train_step(args, split, epoch, loader, model, loss, update_bn=True, logger=None, optimizer = None, M = None, f = None, nViews=ref.nViews,device='cuda', threshold = 0.9):
-  losses, mpjpe, mpjpe_r = AverageMeter(), AverageMeter(), AverageMeter()
-  viewLosses, shapeLosses, supLosses = AverageMeter(), AverageMeter(), AverageMeter()
-  
   prior_loss = []
 
   if update_bn>0:
-	print('Epoch: ' + str(epoch+1)+ ': unsupervised training with BN')
-  	model.train()
+    print('Epoch: ' + str(epoch+1)+ ': unsupervised training with BN')
+    model.train()
   else:
-	print('Epoch: ' + str(epoch+1)+ ': unsupervised training without BN')
-	model.eval()
+    print('Epoch: ' + str(epoch+1)+ ': unsupervised training without BN')
+    model.eval()
 
   idx_0 = len(loader)*epoch
 
@@ -151,17 +148,12 @@ def train_step(args, split, epoch, loader, model, loss, update_bn=True, logger=N
 
 
 def eval_step(args, split, epoch, loader, model, loss, update=True, optimizer = None, M = None, f = None, nViews=ref.nViews, plot_img = False, logger = None,device='cuda'):
-  losses, mpjpe, mpjpe_r = AverageMeter(), AverageMeter(), AverageMeter()
-  viewLosses, shapeLosses, supLosses = AverageMeter(), AverageMeter(), AverageMeter()
-  
   prior_loss = []
   regr_loss = []
   accuracy_this = []
   accuracy_shape = []
 
   model.eval()
-
-  idx_0 = len(loader)*epoch
 
   for i, (input, target, meta) in enumerate(loader):
     input_var = input.to(device)
@@ -178,13 +170,12 @@ def eval_step(args, split, epoch, loader, model, loss, update=True, optimizer = 
     regr_loss.append(cr_regr_loss.item())
     cr_loss = loss(output).mean()
     if plot_img and i<10:
-			img = (input.numpy()[0] * 255).transpose(1, 2, 0).astype(np.uint8)
-			cv2.imwrite('./tmp/'+str(i)+'01.png', img)
-			gt = target.cpu().numpy()[0]
-			pred = (output.data).cpu().numpy()[0]
-			p3d = compute_images3D(cv2.imread('./tmp/'+str(i)+'01.png'),pred,gt, str(i))
-	 		logger.add_image('Image 3D ' +str(i), (np.asarray(Image.open(p3d))).transpose(2,0,1), epoch)
-
+          img = (input.numpy()[0] * 255).transpose(1, 2, 0).astype(np.uint8)
+          cv2.imwrite('./tmp/'+str(i)+'01.png', img)
+          gt = target.cpu().numpy()[0]
+          pred = (output.data).cpu().numpy()[0]
+          p3d = compute_images3D(cv2.imread('./tmp/'+str(i)+'01.png'),pred,gt, str(i))
+          logger.add_image('Image 3D ' +str(i), (np.asarray(Image.open(p3d))).transpose(2,0,1), epoch)
     prior_loss.append(cr_loss.item())
 
   return np.array(accuracy_this).mean(),np.array(accuracy_shape).mean(), np.array(regr_loss).mean(), np.array(prior_loss).mean()
