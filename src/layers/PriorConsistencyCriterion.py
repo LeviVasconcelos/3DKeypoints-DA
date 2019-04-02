@@ -325,15 +325,15 @@ def get_priors_from_file(path, device='cuda', eps=10**(-6)):
 
 
 def load_priors_from_file(root_folder, device='cuda', eps=10**(-6)):
-        kMeanFilename = 'MEAN.npy'
-        kStdFilename = 'STD.npy'
-	mean = np.load(os.path.join(root_folder, kMeanFilename))
-	std = np.load(os.path.join(root_folder, kStdFilename))
-        
-	mean = torch.from_numpy(mean).float()
-        std = torch.from_numpy(std).float()
+      #ModelNet_MeanProp.npy  ModelNet_StdDists.npy  ModelNet_StdProp.npy
+      kMeanFilename = 'ModelNet_MeanProp.npy'
+      kStdFilename = 'ModelNet_StdProp.npy'
+      mean = np.load(os.path.join(root_folder, kMeanFilename))
+      std = np.load(os.path.join(root_folder, kStdFilename))
+      mean = torch.from_numpy(mean).float()
+      std = torch.from_numpy(std).float()
 
-	return mean.to(device), std.to(device)
+      return mean.to(device), std.to(device)
 
 ###############
 #### NORMS ####
