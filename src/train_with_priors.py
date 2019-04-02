@@ -15,9 +15,9 @@ import sys
 import time
 import torch.nn as nn
 import itertools
-
+from utils.visualization import chair_show2D
 from layers.PriorConsistencyCriterion import compute_rotation_loss
-
+import os
 import copy
 
 import mpl_toolkits.mplot3d
@@ -169,7 +169,16 @@ def eval_step(args, split, epoch, loader, model, loss, update=True, optimizer = 
     
     regr_loss.append(cr_regr_loss.item())
     cr_loss = loss(output).mean()
+    numpy_img = None
+    if plot_img:
+          numpy_img = (input.numpy()[0] * 255).transpose(1, 2, 0).astype(np.uint8)
     if plot_img and i<10:
+          pred = output.data.cpu().numpy()[0].copy()
+          gt = target.data.cpu().numpy()[0].copy()
+          numpy_img = chair_show2D(numpy_img, pred, (255,0,0))
+          numpy_img = chair_show2D(numpy_img, gt, (0,0,255))
+          filename_2d = os.path.join(args.save_path, 'img2d_%s_%d_%d.png' % (args.expID, i, epoch))
+          cv2.imwrite(filename_2d, numpy_img)
           img = (input.numpy()[0] * 255).transpose(1, 2, 0).astype(np.uint8)
           cv2.imwrite('./tmp/'+str(i)+'01.png', img)
           gt = target.cpu().numpy()[0]
