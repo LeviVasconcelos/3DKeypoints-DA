@@ -15,7 +15,7 @@ import sys
 import time
 import torch.nn as nn
 import itertools
-from utils.visualization import chair_show2D
+from utils.visualization import chair_show2D, chair_show3D
 from layers.PriorConsistencyCriterion import compute_rotation_loss
 import os
 import copy
@@ -179,12 +179,15 @@ def eval_step(args, split, epoch, loader, model, loss, update=True, optimizer = 
           numpy_img = chair_show2D(numpy_img, gt, (0,0,255))
           filename_2d = os.path.join(args.save_path, 'img2d_%s_%d_%d.png' % (args.expID, i, epoch))
           cv2.imwrite(filename_2d, numpy_img)
-          img = (input.numpy()[0] * 255).transpose(1, 2, 0).astype(np.uint8)
-          cv2.imwrite('./tmp/'+str(i)+'01.png', img)
-          gt = target.cpu().numpy()[0]
-          pred = (output.data).cpu().numpy()[0]
-          p3d = compute_images3D(cv2.imread('./tmp/'+str(i)+'01.png'),pred,gt, str(i))
-          logger.add_image('Image 3D ' +str(i), (np.asarray(Image.open(p3d))).transpose(2,0,1), epoch)
+          fig = plt.figure()
+          ax = fig.add_subplot((111), projection='3d')
+          chair_show3D(ax, pred, 'r')
+          chair_show3D(ax, gt, 'b')
+          #TODO: make it directly to numpy to avoid disk IO
+          filename_3d = os.path.join(args.save_path, 'img3d_%s_%d_%d.png' % (args.expID, i, epoch))
+          plt.savefig(filename_3d)
+          logger.add_image('Image 3D ' + str(i), (np.asarray(Image.open(filename_3d))).transpose(2,0,1), epoch)
+          logger.add_image('Image 2D ' + str(i), (np.asarray(Image.open(filename_2d))).transpose(2,0,1), epoch)
     prior_loss.append(cr_loss.item())
 
   return np.array(accuracy_this).mean(),np.array(accuracy_shape).mean(), np.array(regr_loss).mean(), np.array(prior_loss).mean()
