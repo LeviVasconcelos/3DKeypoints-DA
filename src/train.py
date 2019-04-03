@@ -2,7 +2,7 @@
 import torch
 import numpy as np
 from utils.utils import AverageMeter
-from utils.visualization import chair_show3D, chair_show2D
+from utils.visualization import chair_show3D, chair_show2D, human_show2D, human_show3D
 from utils.eval import accuracy, shapeConsistency, accuracy_dis
 import matplotlib as mpl
 mpl.use('Agg')
@@ -66,20 +66,22 @@ def step(args, split, epoch, loader, model, optimizer = None, M = None, f = None
             f.write('{} 0 0 '.format(vis[t]))
           f.write('\n')'''
     if visualize:
+          draw_2d = chair_show2D if ref.category == 'Chair' else human_show2D
+          draw_3d = chair_show3D if ref.category == 'Chair' else human_show3D
           numpy_img = (input.numpy()[0] * 255).transpose(1, 2, 0).astype(np.uint8)
           #filename_2d = os.path.join(args.save_path, 'img2d_%s_%d_%d.png' % (args.expID, i, epoch))
           #cv2.imwrite(filename_2d, numpy_img)
           if i < 10:
                 pred = output.data.cpu().numpy()[0].copy()
                 gt = target.data.cpu().numpy()[0].copy()
-                numpy_img = chair_show2D(numpy_img, pred, (255,0,0))
-                numpy_img = chair_show2D(numpy_img, gt, (0,0,255))
+                numpy_img = draw_2d(numpy_img, pred, (255,0,0))
+                numpy_img = draw_2d(numpy_img, gt, (0,0,255))
                 filename_2d = os.path.join(args.save_path, 'img2d_%s_%d_%d.png' % (args.expID, i, epoch))
                 cv2.imwrite(filename_2d, numpy_img)
                 fig = plt.figure()
                 ax = fig.add_subplot((111), projection='3d')
-                chair_show3D(ax, pred, 'r')
-                chair_show3D(ax, gt, 'b')
+                draw_3d(ax, pred, 'r')
+                draw_3d(ax, gt, 'b')
                 #TODO: make it directly to numpy to avoid disk IO
                 filename_3d = os.path.join(args.save_path, 'img3d_%s_%d_%d.png' % (args.expID, i, epoch))
                 plt.savefig(filename_3d)
