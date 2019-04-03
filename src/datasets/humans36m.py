@@ -55,7 +55,7 @@ class Humans36mDataset(data.Dataset):
                         ('S7', '15', '2'), # TOF video does not exists.
                         ('S5', '4', '2'), # TOF video does not exists.
                         }
-            kSubjects = np.asrray(['S1', 'S5', 'S6', 'S7', 'S8', 'S9', 'S11'])
+            kSubjects = np.asarray(['S1', 'S5', 'S6', 'S7', 'S8', 'S9', 'S11'])
             self.subjects_to_include = kSubjects[subjects]
             self.kFolders = {
                         'rgb_cameras' : 'imageSequence',
