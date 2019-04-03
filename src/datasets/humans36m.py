@@ -31,19 +31,23 @@ def _draw_annot(img, pose):
             cv2.circle(img2, tuple(i), 1, (255,0,0), -1)
       return img2
 
-def Humans36mRGBDataset(split, nViews, nImages=200000000):
-      return Humans36mDataset(nViews, split, True, nImages)
+def Humans36mRGBSourceDataset(split, nViews, nImages=200000000, subjects = [0, 1, 2]):
+      return Humans36mDataset(nViews, split, True, nImages, subjects)
 
-def Humans36mDepthDataset(split, nViews, nImages=2000000):
+def Humans36mRGBTargetDataset(split, nViews, nImages=200000000, subjects = [3, 4]):
+      return Humans36mDataset(nViews, split, True, nImages, subjects)
+
+
+def Humans36mDepthDataset(split, nViews, nImages=2000000, subjects = [0]):
       return Humans36mDataset(1, split, False, nImages)
 
 class Humans36mDataset(data.Dataset):
-      def __init__(self, nViews, split='train', rgb=True, nPerSubject=2000):
+      def __init__(self, nViews, split='train', rgb=True, nPerSubject=2000, subjects = [0]):
             self.root_dir = ref.Humans_dir
             self.rgb = rgb
             self.nViews = nViews if self.rgb else 1
             self.split = split
-            self.kTrainSplit = 5
+            #self.kTrainSplit = 3
             self.metadata = H36M_Metadata(os.path.join(self.root_dir, 'metadata.xml'))
             self.imagesPerSubject = nPerSubject
             self.kBlacklist = { 
@@ -51,11 +55,8 @@ class Humans36mDataset(data.Dataset):
                         ('S7', '15', '2'), # TOF video does not exists.
                         ('S5', '4', '2'), # TOF video does not exists.
                         }
-            kSubjects = ['S1', 'S5', 'S6', 'S7', 'S8', 'S9', 'S11'] 
-            if split == 'train':
-                  self.subjects_to_include = kSubjects[:self.kTrainSplit]
-            elif split == 'test':
-                  self.subjects_to_include = kSubjects[self.kTrainSplit:]
+            kSubjects = np.asrray(['S1', 'S5', 'S6', 'S7', 'S8', 'S9', 'S11'])
+            self.subjects_to_include = kSubjects[subjects]
             self.kFolders = {
                         'rgb_cameras' : 'imageSequence',
                         'tof_data' : 'ToFSequence'
@@ -169,6 +170,7 @@ class Humans36mDataset(data.Dataset):
             last_subject = 0
             for i in self.subject_max_idx:
                   #print('building: ', last_subject, i)
+                  #to_use_images = np.arange(last_subject,i,1)[:self.imagesPerSubject]
                   self.access_order += np.random.permutation(np.arange(last_subject,i,1))[:self.imagesPerSubject].tolist()
                   last_subject = i
             np.random.shuffle(self.access_order)
