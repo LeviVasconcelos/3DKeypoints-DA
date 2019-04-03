@@ -177,7 +177,7 @@ def main():
             adjust_learning_rate(optimizer, epoch, args.dropLR)
             if args.sourceOnly:
                   #(args, train_loader, model, optimizer, epoch, Views=ref.nViews):
-                  train_source_only(args, trainSource_loader, model, optimizer, epoch, nViews=args.nViews)
+                  train_source_only(args, trainSource_loader, model, optimizer, epoch)
             elif args.shapeConsistency:
                   if args.shapeWeight > ref.eps and args.dialModel:
                         train_loader = fusion_loader
