@@ -22,6 +22,76 @@ meta shape:torch.Size([64, 15])
 
 __DEBUG = False
 
+def source_only_train_step(args, epoch, loader, model, optimizer = None, device = 'cuda'):
+      model.train()
+      regression_loss = []
+      bar = Bar('{}'.format(ref.category), max=len(loader))
+      for i, (input, target, meta) in enumerate(loader):
+            input_var = input.to(device)
+            target_var = target.to(device)
+            output = model(input_var)
+            
+            loss = ((output - target_var.view(target_var.shape[0],-1)) ** 2).sum() / ref.J / 3 / input.shape[0]
+            regression_loss.append(loss.item())
+            
+            optimizer.zero_grad()
+            loss.bacward()
+            optimizer.step()
+            
+            Bar.suffix = 'Epoch [%d] (%d/%d) Loss: %.5f' % (epoch, i, len(loader), np.array(regression_loss).mean())
+            bar.next()
+            
+      bar.finish()
+      return np.array(regression_loss).mean()
+
+
+def source_only_eval(args, epoch, loader, model, nViews=ref.nViews, plot_img = False, logger = None, device='cuda'):
+      regr_loss = []
+      accuracy_this = []
+      accuracy_shape = []
+      
+      device = 'cuda'
+      model.eval()
+      for i, (input, target, meta) in enumerate(loader):
+            input_var = input.to(device)
+            target_var = target.to(device)
+            output = model(input_var)
+            
+            loss = ((output - target_var.view(target_var.shape[0],-1)) ** 2).sum() / ref.J / 3 / input.shape[0]
+
+            current_acc = accuracy(output.data, target, meta)
+            current_acc_shape = accuracy_dis(output.data, target, meta)
+            
+            accuracy_this.append(current_acc.item())
+            accuracy_shape.append(current_acc_shape.item())
+            regr_loss.append(loss.item())
+            
+            if plot_img:
+                  draw_2d = chair_show2D if ref.category == 'Chair' else human_show2D
+                  draw_3d = chair_show3D if ref.category == 'Chair' else human_show3D
+                  numpy_img = (input.numpy()[0] * 255).transpose(1, 2, 0).astype(np.uint8)
+                  #filename_2d = os.path.join(args.save_path, 'img2d_%s_%d_%d.png' % (args.expID, i, epoch))
+                  #cv2.imwrite(filename_2d, numpy_img)
+                if i < 10:
+                      pred = output.data.cpu().numpy()[0].copy()
+                      gt = target.data.cpu().numpy()[0].copy()
+                      numpy_img = draw_2d(numpy_img, pred, (255,0,0))
+                      numpy_img = draw_2d(numpy_img, gt, (0,0,255))
+                      filename_2d = os.path.join(args.save_path, 'img2d_%s_%d_%d.png' % (args.expID, i, epoch))
+                      cv2.imwrite(filename_2d, numpy_img)
+                      fig = plt.figure()
+                      ax = fig.add_subplot((111), projection='3d')
+                      draw_3d(ax, pred, 'r')
+                      draw_3d(ax, gt, 'b')
+                      #TODO: make it directly to numpy to avoid disk IO
+                      filename_3d = os.path.join(args.save_path, 'img3d_%s_%d_%d.png' % (args.expID, i, epoch))
+                      plt.savefig(filename_3d)
+                      logger.add_image('Image 3D ' + str(i), (np.asarray(Image.open(filename_3d))).transpose(2,0,1), epoch)
+                      logger.add_image('Image 2D ' + str(i), (np.asarray(Image.open(filename_2d))).transpose(2,0,1), epoch)
+                      
+      return np.array(regr_loss).mean(), np.array(accuracy_this).mean(), np.array(accuracy_shape).mean()
+
+
 def step(args, split, epoch, loader, model, optimizer = None, M = None, f = None, tag = None, dial=False, nViews=ref.nViews, visualize=False, logger=None):
   losses, mpjpe, mpjpe_r = AverageMeter(), AverageMeter(), AverageMeter()
   viewLosses, shapeLosses, supLosses = AverageMeter(), AverageMeter(), AverageMeter()
@@ -201,6 +271,13 @@ def dial_step(args, split, epoch, (loader, len_loader), model, optimizer = None,
       
   bar.finish()
   return mpjpe.avg, losses.avg, shapeLosses.avg
+
+def train_source_only(args, train_loader, model, optimizer, epoch, Views=ref.nViews):
+      return source_only_train_step(args, epoch, train_loader, model, optimizer, nViews=ref.nViews, device = 'cuda')
+
+def eval_source_only(args, val_loader, model, loss, epoch, plot_img=False, logger=None):
+      #(args, epoch, loader, model, nViews=ref.nViews, plot_img = False, logger = None, device='cuda'):
+      return source_only_eval(args, epoch, val_loader, model, plot_img = plot_img, logger = logger)
 
 def train(args, train_loader, model, optimizer, M, epoch, dial=False, nViews=ref.nViews):
   return step(args, 'train', epoch, train_loader, model, optimizer, M = M, dial=dial)

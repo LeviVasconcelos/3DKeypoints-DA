@@ -23,7 +23,7 @@ from utils.utils import createDirIfNonExistent
 from utils.logger import Logger
 
 from opts import opts
-from train import train, validate, test
+from train import train, validate, test, train_source_only, eval_source_only
 from train_with_priors import  train_priors, validate_priors
 from optim_latent import initLatent, stepLatent, getY
 from model import getModel
@@ -38,7 +38,7 @@ args = opts().parse()
 if args.sourceDataset =='ModelNet':
   from datasets.chairs_modelnet import ChairsModelNet as SourceDataset
 elif args.sourceDataset == 'HumansRGB':
-  from datasets.humans36m import Humans36mRGBDataset as SourceDataset
+  from datasets.humans36m import Humans36mRGBSourceDataset as SourceDataset
 elif args.sourceDataset == 'HumansDepth':
   from datasets.humans36m import Humans36mDepthDataset as SourceDataset
 else:
@@ -53,7 +53,7 @@ elif args.targetDataset == 'RedwoodRGB':
 elif args.targetDataset == '3DCNN':
   from datasets.chairs_3DCNN import Chairs3DCNN as TargetDataset
 elif args.targetDataset == 'HumansRGB':
-  from datasets.humans36m import Humans36mRGBDataset as TargetDataset
+  from datasets.humans36m import Humans36mRGBTargetDataset as TargetDataset
 elif args.targetDataset == 'HumansDepth':
   from datasets.humans36m import Humans36mDepthDataset as TargetDataset
 else:
@@ -151,7 +151,7 @@ def main():
             
             logger.add_scalar('val/source-prior-loss', valSource_unSuploss, 0)
             logger.add_scalar('val/target-prior-loss', valTarget_unSuploss, 0)
-      else:
+      elif not args.sourceOnly:
             valTarget_mpjpe, valTarget_loss, valTarget_unSuploss = validate(args, 'Target', valTarget_loader, model, None, 0, visualize=True, logger=logger)
             valSource_mpjpe, valSource_loss, valSource_unSuploss = validate(args, 'Source', valSource_loader, model, None, 0)
             logger.add_scalar('val/target-accuracy', valTarget_mpjpe, 0)
@@ -176,7 +176,10 @@ def main():
       print 'Start training...'
       for epoch in range(1, args.epochs + 1):
             adjust_learning_rate(optimizer, epoch, args.dropLR)
-            if args.shapeConsistency:
+            if args.sourceOnly:
+                  #(args, train_loader, model, optimizer, epoch, Views=ref.nViews):
+                  train_source_only(args, trainSource_loader, model, optimizer, epoch, Views=nViews)
+            elif args.shapeConsistency:
                   if args.shapeWeight > ref.eps and args.dialModel:
                         train_loader = fusion_loader
                         len_loader = len(train_loader)
@@ -202,7 +205,7 @@ def main():
                         logger.add_scalar('val/source-regr-loss', valSource_loss, epoch)
                         logger.add_scalar('val/source-unsup-loss', valSource_unSuploss, epoch)
                         
-            else:
+            elif not args.sourceOnly:
                   train_priors(args, [trainTarget_loader], model, prior_loss, args.batch_norm, logger, optimizer, epoch-1, threshold = args.threshold)
                   
                   if epoch % 2 == 0:
