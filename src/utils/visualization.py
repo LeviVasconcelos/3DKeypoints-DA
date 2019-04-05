@@ -30,10 +30,10 @@ human_edges = [[13,25],  #right arm connection
 S = 224
 
 def human_show3D(ax, points, c = (255, 0, 0), edges = human_edges, J = ref.J):
-      show3D(ax, points, c = (255, 0, 0), edges = human_edges, J = ref.J)
+      show3D(ax, points, c, edges, J)
 
 def chair_show3D(ax, points, c = (255, 0, 0), edges = chair_edges, J = ref.J):
-      show3D(ax, points, c = (255, 0, 0), edges = chair_edges, J = ref.J)
+      show3D(ax, points, c, edges, J)
     
 def show3D(ax, points, c = (255, 0, 0), edges = chair_edges, J = ref.J):
     points = points.reshape(J, 3)
