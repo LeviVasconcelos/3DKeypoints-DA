@@ -26,6 +26,8 @@ def source_only_train_step(args, epoch, loader, model, optimizer = None, device 
       model.train()
       regression_loss = []
       bar = Bar('{}'.format(ref.category), max=len(loader))
+      accumulate_loss = 0.
+      count_loss = 0.
       for i, (input, target, meta) in enumerate(loader):
             input_var = input.to(device)
             target_var = target.to(device)
@@ -33,12 +35,14 @@ def source_only_train_step(args, epoch, loader, model, optimizer = None, device 
             
             loss = ((output - target_var.view(target_var.shape[0],-1)) ** 2).sum() / ref.J / 3 / input.shape[0]
             regression_loss.append(loss.item())
+            accumulate_loss += loss.item()
+            count_loss += 1.
             
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
             
-            Bar.suffix = 'Epoch [%d] (%d/%d) Loss: %.5f' % (epoch, i, len(loader), np.array(regression_loss).mean())
+            Bar.suffix = 'Epoch [%d] (%d/%d) Loss: %.5f' % (epoch, i, len(loader), accumulate_loss/count_loss)
             bar.next()
             
       bar.finish()
