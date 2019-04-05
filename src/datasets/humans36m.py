@@ -209,7 +209,10 @@ class Humans36mDataset(data.Dataset):
             
             for k in range(self.nViews):
                   imgs[k] = self._load_image(idx, k).astype(np.float32)
-                  annots[k] = self._get_ref(idx)['Annot']['3d'][k].copy()
+                  if self.rgb:
+                        annots[k] = self._get_ref(idx)['Annot']['3d'][k].copy()
+                  else:
+                        annots[k] = self._get_ref(idx)['Annot']['3d'][1].copy()
                   #annots[k] = self._get_ref(idx)['Annot']['3d-norm'][k].copy()
                   #mono_pose3d[k] = self._get_ref(idx)['Annot']['3d'][k].copy()
                   #univ_pose3d[k] = self._get_ref(idx)['Annot']['3d-univ'][k].copy()
