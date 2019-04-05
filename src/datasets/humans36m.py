@@ -39,7 +39,7 @@ def Humans36mRGBTargetDataset(split, nViews, nImages=200000000, subjects = [3, 4
 
 
 def Humans36mDepthDataset(split, nViews, nImages=2000000, subjects = [0]):
-      return Humans36mDataset(1, split, False, nImages)
+      return Humans36mDataset(1, split, False, nImages, subjects)
 
 class Humans36mDataset(data.Dataset):
       def __init__(self, nViews, split='train', rgb=True, nPerSubject=2000, subjects = [0]):
