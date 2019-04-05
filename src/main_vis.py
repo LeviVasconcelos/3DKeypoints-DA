@@ -100,6 +100,8 @@ def main():
       if not args.shapeConsistency and not args.sourceOnly:
             if args.propsOnly:
                   prior_loss = PriorRegressionCriterion(args.propsFile, norm = args.lossNorm, distances_refinement=args.distsRefiner, obj='props')
+            elif args.distsOnly:
+                  prior_loss = PriorRegressionCriterion(args.propsFile, norm = args.lossNorm, distances_refinement=args.distsRefiner, obj='dists')
             else:
                   prior_loss = PriorSMACOFCriterion(args.propsFile, norm = args.lossNorm, distances_refinement=args.distsRefiner, iterate=False, J=ref.J)
 

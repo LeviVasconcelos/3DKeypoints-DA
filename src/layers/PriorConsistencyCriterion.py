@@ -24,16 +24,16 @@ class AbstractPriorLoss(nn.Module):
   def __init__(self, path, J=10, eps = 10**(-6), device='cuda', norm='l2', distances_refinement=None):
     super(AbstractPriorLoss, self).__init__()
     #Mean,Std,DMean, DStd, Corr = get_priors_from_file(path)
-    Mean, Std = load_priors_from_file(path)
+    Mean, Std, DMean, DStd = load_priors_from_file(path)
 
     self.J = J
     self.eps = eps
 
     # Init priors holders
-    self.priorMean=Mean.view(1,self.J, self.J, self.J,self.J)
-    self.priorStd=Std.view(1,self.J, self.J, self.J,self.J)
-    #self.distMean = DMean.view(1,self.J, self.J)
-    #self.distStd=DStd.view(1,self.J, self.J)
+    self.priorMean = Mean.view(1,self.J, self.J, self.J,self.J)
+    self.priorStd = Std.view(1,self.J, self.J, self.J,self.J)
+    self.distMean = DMean.view(1,self.J, self.J)
+    self.distStd = DStd.view(1,self.J, self.J)
 
 
 
@@ -135,7 +135,7 @@ class PriorRegressionCriterion(AbstractPriorLoss):
     prediction = prediction.view(prediction.shape[0],self.J,-1)
     dists = compute_distances(prediction, eps=self.eps)
 
-    diff = (dists-self.avg_dists)
+    diff = (dists-self.distMean)
     mse = self.norm(diff)
 
     return mse
@@ -295,15 +295,17 @@ def get_priors_from_file(path, device='cuda', eps=10**(-6)):
 
 
 def load_priors_from_file(root_folder, device='cuda', eps=10**(-6)):
-      #ModelNet_MeanProp.npy  ModelNet_StdDists.npy  ModelNet_StdProp.npy
+      #ModelNet_MeanDists.npy  ModelNet_MeanProp.npy  ModelNet_StdDists.npy  ModelNet_StdProp.npy
+      kMeanDistsFilename = 'ModelNet_MeanDists.npy'
+      kStdDistsFilename = 'ModelNet_StdDists.npy'
       kMeanFilename = 'ModelNet_MeanProp.npy'
       kStdFilename = 'ModelNet_StdProp.npy'
-      mean = np.load(os.path.join(root_folder, kMeanFilename))
-      std = np.load(os.path.join(root_folder, kStdFilename))
-      mean = torch.from_numpy(mean).float()
-      std = torch.from_numpy(std).float()
+      dist_mean = np.load(os.path.join(root_folder, kMeanDistsFilename)).float()
+      dist_std = np.load(os.path.join(root_folder, kStdDistsFilename)).float()
+      prop_mean = np.load(os.path.join(root_folder, kMeanFilename)).float()
+      prop_std = np.load(os.path.join(root_folder, kStdFilename)).float()
 
-      return mean.to(device), std.to(device)
+      return prop_mean.to(device), prop_std.to(device), dist_mean.to(device), dist_std.to(device)
 
 ###############
 #### NORMS ####

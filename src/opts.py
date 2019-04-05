@@ -17,6 +17,7 @@ class opts():
     self.parser.add_argument('-shapeConsistency', action = 'store_true', help='whether to use the baseline loss for DA')
     self.parser.add_argument('-weightedNorm', action = 'store_true', help='whether to use the std while computing the loss')
     self.parser.add_argument('-propsOnly', action = 'store_true', help='whether to use just proportion distances as loss')
+    self.parser.add_argument('-distsOnly', action = 'store_true', help='whether to use just distances as loss')
     self.parser.add_argument('-lossNorm', default='l2', type=str, 
                                help='l2 | l1 | frobenius')
     self.parser.add_argument('-distsRefiner', default=None, type=str, 
