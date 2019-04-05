@@ -38,7 +38,7 @@ def Humans36mRGBTargetDataset(split, nViews, nImages=200000000, subjects = [3, 4
       return Humans36mDataset(nViews, split, True, nImages, subjects)
 
 
-def Humans36mDepthDataset(split, nViews, nImages=2000000, subjects = [0]):
+def Humans36mDepthDataset(split, nViews, nImages=2000000, subjects = [0, 1, 2]):
       return Humans36mDataset(1, split, False, nImages, subjects)
 
 class Humans36mDataset(data.Dataset):
