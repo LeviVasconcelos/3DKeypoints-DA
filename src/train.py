@@ -279,7 +279,7 @@ def dial_step(args, split, epoch, (loader, len_loader), model, optimizer = None,
 def train_source_only(args, train_loader, model, optimizer, epoch):
       return source_only_train_step(args, epoch, train_loader, model, optimizer, device = 'cuda')
 
-def eval_source_only(args, val_loader, model, loss, epoch, plot_img=False, logger=None):
+def eval_source_only(args, val_loader, model, epoch, plot_img=False, logger=None):
       #(args, epoch, loader, model, plot_img = False, logger = None, device='cuda'):
       return source_only_eval(args, epoch, val_loader, model, plot_img = plot_img, logger = logger)
 
