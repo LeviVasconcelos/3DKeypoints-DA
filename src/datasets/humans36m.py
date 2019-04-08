@@ -31,15 +31,23 @@ def _draw_annot(img, pose):
             cv2.circle(img2, tuple(i), 1, (255,0,0), -1)
       return img2
 
-def Humans36mRGBSourceDataset(split, nViews, nImages=200000000, subjects = [0, 1, 2]):
+def Humans36mRGBSourceDataset(split, nViews, nImages=200000000):
+      subjects = [0, 1, 2] if split == 'train' else [5,6]
       return Humans36mDataset(nViews, split, True, nImages, subjects)
 
-def Humans36mRGBTargetDataset(split, nViews, nImages=200000000, subjects = [3, 4]):
+def Humans36mRGBTargetDataset(split, nViews, nImages=200000000):
+      subjects = [3, 4] if split == 'train' else [5,6]
       return Humans36mDataset(nViews, split, True, nImages, subjects)
 
 
-def Humans36mDepthDataset(split, nViews, nImages=2000000, subjects = [0, 1, 2]):
+def Humans36mDepthSourceDataset(split, nViews, nImages=2000000):
+      subjects = [0, 1, 2] if split == 'train' else [5,6]
       return Humans36mDataset(1, split, False, nImages, subjects)
+
+def Humans36mDepthTargetDataset(split, nViews, nImages=2000000):
+      subjects = [3, 4] if split == 'train' else [5,6]
+      return Humans36mDataset(1, split, False, nImages, subjects)
+
 
 class Humans36mDataset(data.Dataset):
       def __init__(self, nViews, split='train', rgb=True, nPerSubject=2000, subjects = [0]):

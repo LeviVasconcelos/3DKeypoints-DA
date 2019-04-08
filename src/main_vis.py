@@ -40,7 +40,7 @@ if args.sourceDataset =='ModelNet':
 elif args.sourceDataset == 'HumansRGB':
   from datasets.humans36m import Humans36mRGBSourceDataset as SourceDataset
 elif args.sourceDataset == 'HumansDepth':
-  from datasets.humans36m import Humans36mDepthDataset as SourceDataset
+  from datasets.humans36m import Humans36mDepthSourceDataset as SourceDataset
 else:
   raise Exception("No source dataset: " + args.sourceDataset)
 
@@ -55,7 +55,7 @@ elif args.targetDataset == '3DCNN':
 elif args.targetDataset == 'HumansRGB':
   from datasets.humans36m import Humans36mRGBTargetDataset as TargetDataset
 elif args.targetDataset == 'HumansDepth':
-  from datasets.humans36m import Humans36mDepthDataset as TargetDataset
+  from datasets.humans36m import Humans36mDepthTargetDataset as TargetDataset
 else:
   raise Exception("No target dataset {}".format(args.targetDataset))
 
