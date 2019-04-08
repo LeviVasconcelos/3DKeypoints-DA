@@ -127,7 +127,7 @@ class PriorRegressionCriterion(AbstractPriorLoss):
     props = compute_proportions(dists, eps=self.eps).view(dists.shape[0],self.J,self.J,self.J,self.J)
     diff = (props-self.priorMean)#/sel.priorStd
     mse = self.norm(diff)
-
+    assert(torch.isnan(mse).sum() < 1)
     return mse
 
 
@@ -304,7 +304,11 @@ def load_priors_from_file(root_folder, device='cuda', eps=10**(-6)):
       dist_std = torch.from_numpy(np.load(os.path.join(root_folder, kStdDistsFilename))).float()
       prop_mean = torch.from_numpy(np.load(os.path.join(root_folder, kMeanFilename))).float()
       prop_std = torch.from_numpy(np.load(os.path.join(root_folder, kStdFilename))).float()
-
+      if (torch.isnan(prop_std).sum() > 0 or 
+         torch.isnan(prop_mean).sum() > 0 or
+         torch.isnan(dist_mean).sum() > 0 or
+         torch.isnan(dist_std).sum() > 0):
+               print('LOADED FILES CONTAIN NaNs')
       return prop_mean.to(device), prop_std.to(device), dist_mean.to(device), dist_std.to(device)
 
 ###############

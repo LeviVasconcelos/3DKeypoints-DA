@@ -130,6 +130,9 @@ def train_step(args, split, epoch, loader, model, loss, update_bn=True, logger=N
   for i, (input, _, _) in enumerate(loader):
     input_var = input.to(device)
     output = model(input_var)
+    if torch.isnan(output).sum() > 0:
+        print('OUTPUT WITH NANS DURING TRAINING')
+        return
 
     cr_loss = loss(output)
     cr_loss = (cr_loss).mean()
@@ -159,7 +162,10 @@ def eval_step(args, split, epoch, loader, model, loss, update=True, optimizer = 
     input_var = input.to(device)
     target_var = target.to(device)
     output = model(input_var)
-
+    if torch.isnan(input_var).sum() > 0:
+        print('INPUT WITH NANS')
+    if torch.isnan(output).sum() > 0:
+        print('OUTPUT WITH NANS')
     cr_regr_loss = ((output - target_var.view(target_var.shape[0],-1)) ** 2).sum() / ref.J / 3 / input.shape[0]
 
     current_acc = accuracy(output.data, target, meta)

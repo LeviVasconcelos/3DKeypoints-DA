@@ -23,7 +23,11 @@ def compute_distances(x, eps=10**(-6)):
     x_transposed = x.permute(0,2,1) # B x K x D
     xxT = torch.bmm(x,x_transposed)
     dists = x_squared_left + x_squared_right - 2*xxT  +eps
+    if (torch.isnan(dists).sum() > 0):
+        print('Distances NaN')
     dists = (nn.functional.relu(dists)).pow(0.5)
+    if (torch.isnan(dists).sum() > 0):
+        print('Distances naN after Relu')
     return  dists # B x K x K
 
 
@@ -42,6 +46,9 @@ def compute_proportions(x,eps=10**(-6)): # x has dimensions B x K x K
     numerator = x.unsqueeze(2) # B x K^2 x 1
     denominator = 1./(x.unsqueeze(1)+eps) # B x 1 x K^2
     mm = torch.bmm(numerator,denominator) # B x K^2 x K^2
+    if (torch.isnan(mm).sum() > 0):
+       print('NaN computing proportions...')
+    assert(torch.isnan(mm).sum() < 1)
     return mm
 
 def compute_masked_proportions(x,mask,eps=10**(-6)): # x has dimensions B x K x K
