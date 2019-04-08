@@ -126,7 +126,7 @@ class PriorRegressionCriterion(AbstractPriorLoss):
     dists = compute_distances(prediction, eps=self.eps)
     props = compute_proportions(dists, eps=self.eps).view(dists.shape[0],self.J,self.J,self.J,self.J)
     diff = (props-self.priorMean)#/sel.priorStd
-    mse = self.norm(diff)
+    mse = self.norm(diff*self.upper_triangular)
     assert(torch.isnan(mse).sum() < 1)
     return mse
 
@@ -318,7 +318,8 @@ def load_priors_from_file(root_folder, device='cuda', eps=10**(-6)):
 
 def l2(x,w=1.):
       x=x.view(x.shape[0],-1)
-      return (w*(x.pow(2))).sum(-1)
+      #return (w*(x.pow(2))).sum(-1)
+      return (w*(x.pow(2))).mean(-1)
 
 def frobenius(x):
       assert len(x.shape)==3
