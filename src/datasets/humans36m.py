@@ -83,7 +83,7 @@ class Humans36mDataset(data.Dataset):
             for i in range(self.len):
                   for j in range(self.kMaxViews):
                         if self.rgb:
-                              self.meta[i,j,0] = 5 if self.split == 'train' else -5
+                              self.meta[i,j,0] = 1 if self.split == 'train' else -1
                         else:
                               self.meta[i,j,0] = 1 if self.split == 'train' else -1
                         self.meta[i,j, 1] = i

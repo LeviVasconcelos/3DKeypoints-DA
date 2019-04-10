@@ -130,11 +130,12 @@ def train_step(args, split, epoch, loader, model, loss, update_bn=True, logger=N
   for i, (input, _, _) in enumerate(loader):
     input_var = input.to(device)
     output = model(input_var)
-    if torch.isnan(output).sum() > 0:
-        print('OUTPUT WITH NANS DURING TRAINING')
-        return
 
     cr_loss = loss(output)
+    print(cr_loss.item())
+    if torch.isnan(output).sum() > 0:
+        print('OUTPUT WITH NANS DURING TRAINING %d' % i)
+        return
     cr_loss = (cr_loss).mean()
 
 

@@ -73,16 +73,16 @@ def source_only_eval(args, epoch, loader, model, plot_img = False, logger = None
             if plot_img:
                   draw_2d = chair_show2D if ref.category == 'Chair' else human_show2D
                   draw_3d = chair_show3D if ref.category == 'Chair' else human_show3D
-                  numpy_img = (input.numpy()[0] * 255).transpose(1, 2, 0).astype(np.uint8)
+                  #numpy_img = (input.numpy()[0] * 255).transpose(1, 2, 0).astype(np.uint8)
                   #filename_2d = os.path.join(args.save_path, 'img2d_%s_%d_%d.png' % (args.expID, i, epoch))
                   #cv2.imwrite(filename_2d, numpy_img)
                   if i < 10:
                         pred = output.data.cpu().numpy()[0].copy()
                         gt = target.data.cpu().numpy()[0].copy()
-                        numpy_img = draw_2d(numpy_img, pred, (255,0,0))
-                        numpy_img = draw_2d(numpy_img, gt, (0,0,255))
-                        filename_2d = os.path.join(args.save_path, 'img2d_%s_%d_%d.png' % (args.expID, i, epoch))
-                        cv2.imwrite(filename_2d, numpy_img)
+                        #numpy_img = draw_2d(numpy_img, pred, (255,0,0))
+                        #numpy_img = draw_2d(numpy_img, gt, (0,0,255))
+                        #filename_2d = os.path.join(args.save_path, 'img2d_%s_%d_%d.png' % (args.expID, i, epoch))
+                        #cv2.imwrite(filename_2d, numpy_img)
                         fig = plt.figure()
                         ax = fig.add_subplot((111), projection='3d')
                         draw_3d(ax, pred, 'r')
@@ -90,7 +90,7 @@ def source_only_eval(args, epoch, loader, model, plot_img = False, logger = None
                         #TODO: make it directly to numpy to avoid disk IO
                         filename_3d = os.path.join(args.save_path, 'img3d_%s_%d_%d.png' % (args.expID, i, epoch))
                         plt.savefig(filename_3d)
-                        logger.add_image('Image 3D ' + str(i), (np.asarray(Image.open(filename_3d))).transpose(2,0,1), epoch)
+                        #logger.add_image('Image 3D ' + str(i), (np.asarray(Image.open(filename_3d))).transpose(2,0,1), epoch)
                         logger.add_image('Image 2D ' + str(i), (np.asarray(Image.open(filename_2d))).transpose(2,0,1), epoch)
                       
       return np.array(regr_loss).mean(), np.array(accuracy_this).mean(), np.array(accuracy_shape).mean()
