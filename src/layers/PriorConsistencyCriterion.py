@@ -165,6 +165,8 @@ class PriorSMACOFCriterion(AbstractPriorLoss):
     super(PriorSMACOFCriterion, self).__init__(path, J, eps, device, norm, distances_refinement)
 
     self.eyeK = torch.eye(3).unsqueeze(0).float()
+    self.rotation_weight = rotation_weight
+    self.scale_weight = scale_weight
     self.dists_mask = torch.FloatTensor(1,self.J,self.J).zero_()
     for i in range(self.J):
           for j in range(self.J):
@@ -174,7 +176,7 @@ class PriorSMACOFCriterion(AbstractPriorLoss):
     self.eyeK = self.eyeK.to(device)
     self.dists_mask = self.dists_mask.to(device)
 
-    if rotation_weight>0 or scale_weight>0:
+    if rotation_weight > 0 or scale_weight > 0:
           self.forward = self.forward_regularized    
     elif iterate:
           self.forward = self.forward_iterative
@@ -195,18 +197,18 @@ class PriorSMACOFCriterion(AbstractPriorLoss):
     regression_term = self.compute_obj(prediction, gt_dists, w)/self.J
 
     rotation_loss=0.
-    if rotation_weight>0:
+    if self.rotation_weight > 0:
         smacof_x = self.iterate(prediction, gt_dists, w).detach()
         rotation_loss = compute_rotation_loss(prediction, smacof_x)
 
     scale_loss=0.
-    if scale_weight>0:
-        if rotation_weight<=0:
+    if self.scale_weight > 0:
+        if self.rotation_weight <= 0:
             smacof_x = self.iterate(prediction, gt_dists, w).detach()
         smacof_dists = compute_distances(smacof_x, eps=self.eps)
         scale_loss = compute_scale_loss(dists, smacof_dists)
 
-    return regression_term + scale_weight*scale_loss + rotation_weight*rotation_loss
+    return regression_term + self.scale_weight * scale_loss + self.rotation_weight * rotation_loss
 
 
   def forward_objective(self, prediction, dt=None):
@@ -376,10 +378,11 @@ def compute_rotation_loss(x,y):
             U,S,Vt = yTx[i].svd()
             xTy = yTx[i].permute(1,0)
             s = torch.sign(xTy.det())
-            diag_S = diag_0 + diag_1*s
-            R = U*diag_S*Vt
+            diag_S = diag_0 + (diag_1*s)
+            R = torch.mm(U, torch.mm(diag_S, Vt.t()))
+            I = torch.mm(R, R.t())
+            assert((I - torch.eye(3).to(x.device)).sum() < 0.0000001) #DEBUG PURPOSE
             rot_loss = rot_loss + torch.norm(R-target)
-
       return rot_loss/x.shape[0]
 
 
@@ -389,3 +392,18 @@ def compute_scale_loss(dist_x,dist_y):
 
       return l2(max_x-max_y)
 
+'''
+def compute_rotation(x,y):
+      diag_0 = torch.diag(torch.Tensor([1.,1.,0])).to(x.device)
+      diag_1 = torch.diag(torch.Tensor([0.,0.,1.])).to(x.device)
+      yTx = torch.mm(y.permute(1,0),x)
+
+      U,S,Vt = yTx.svd()
+      xTy = yTx.permute(1,0)
+      s = torch.sign(xTy.det())
+      diag_S = diag_0 + (diag_1*s)
+      print(diag_S)
+      #R = U*(diag_S.double())*Vt
+      R = torch.mm(U,torch.mm((diag_S.double()),Vt.t()))
+      return R
+'''
