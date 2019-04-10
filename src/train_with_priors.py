@@ -137,6 +137,7 @@ def train_step(args, split, epoch, loader, model, loss, update_bn=True, logger=N
     cr_loss = loss(output)
     cr_loss = (cr_loss).mean()
 
+
     #rotation_loss = compute_rotation_loss(old_output.view(input.shape[0],10,3), output.view(input.shape[0],10,3), w)
 
     prior_loss.append(cr_loss.item())
@@ -194,6 +195,8 @@ def eval_step(args, split, epoch, loader, model, loss, update=True, optimizer = 
           plt.savefig(filename_3d)
           logger.add_image('Image 3D ' + str(i), (np.asarray(Image.open(filename_3d))).transpose(2,0,1), epoch)
           logger.add_image('Image 2D ' + str(i), (np.asarray(Image.open(filename_2d))).transpose(2,0,1), epoch)
+          plt.close()
+
     prior_loss.append(cr_loss.item())
 
   return np.array(accuracy_this).mean(),np.array(accuracy_shape).mean(), np.array(regr_loss).mean(), np.array(prior_loss).mean()

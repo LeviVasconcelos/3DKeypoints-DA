@@ -112,30 +112,31 @@ class AbstractPriorLoss(nn.Module):
 class PriorRegressionCriterion(AbstractPriorLoss):
   def __init__(self, path, J=10, eps = 10**(-6), device='cuda', norm='l2', distances_refinement=None, obj='props'):
     super(PriorRegressionCriterion, self).__init__(path, J, eps, device, norm, distances_refinement)
-
+    self.obj = obj
     if obj == 'props':
           self.forward=(self.forward_props)
     elif obj == 'dists':
           self.forward=(self.forward_dists)
     else:
           self.forward=(self.forward_synth)
-
-
+  
   def forward_props(self, prediction, dt=None):
+    eps = 1e-6
     prediction = prediction.view(prediction.shape[0],self.J,-1)
     dists = compute_distances(prediction, eps=self.eps)
     props = compute_proportions(dists, eps=self.eps).view(dists.shape[0],self.J,self.J,self.J,self.J)
-    diff = (props-self.priorMean)#/sel.priorStd
-    mse = self.norm(diff*self.upper_triangular)
+    diff = (props-self.priorMean)#/(self.priorStd + eps)
+    mse = self.norm(diff)
     assert(torch.isnan(mse).sum() < 1)
     return mse
 
 
   def forward_dists(self, prediction, dt=None):
+    eps = 1e-6
     prediction = prediction.view(prediction.shape[0],self.J,-1)
     dists = compute_distances(prediction, eps=self.eps)
 
-    diff = (dists-self.distMean)
+    diff = (dists-self.distMean)/(self.distStd + eps)
     mse = self.norm(diff)
 
     return mse
@@ -160,7 +161,7 @@ class PriorRegressionCriterion(AbstractPriorLoss):
 ##############################
 
 class PriorSMACOFCriterion(AbstractPriorLoss):
-  def __init__(self, path, J=10, eps = 10**(-6), device='cuda', norm='l2', distances_refinement=None, iterate=False):
+  def __init__(self, path, J=10, eps = 10**(-6), device='cuda', norm='l2', distances_refinement=None, iterate=False, rotation_weight=0, scale_weight=0):
     super(PriorSMACOFCriterion, self).__init__(path, J, eps, device, norm, distances_refinement)
 
     self.eyeK = torch.eye(3).unsqueeze(0).float()
@@ -173,10 +174,40 @@ class PriorSMACOFCriterion(AbstractPriorLoss):
     self.eyeK = self.eyeK.to(device)
     self.dists_mask = self.dists_mask.to(device)
 
-    if iterate:
+    if rotation_weight>0 or scale_weight>0:
+          self.forward = self.forward_regularized    
+    elif iterate:
           self.forward = self.forward_iterative
     else:
           self.forward = self.forward_objective
+
+
+  def forward_regularized(self, prediction, dt=None):
+
+    prediction = prediction.view(prediction.shape[0],self.J,-1)
+
+    dists = compute_distances(prediction, eps=self.eps)
+    props = compute_proportions(dists, eps=self.eps).view(dists.shape[0],self.J,self.J,self.J,self.J)
+    gt_dists = self.refiner(dists,props)*(1.-self.eyeJ)
+
+    w = torch.ones_like(gt_dists)
+
+    regression_term = self.compute_obj(prediction, gt_dists, w)/self.J
+
+    rotation_loss=0.
+    if rotation_weight>0:
+        smacof_x = self.iterate(prediction, gt_dists, w).detach()
+        rotation_loss = compute_rotation_loss(prediction, smacof_x)
+
+    scale_loss=0.
+    if scale_weight>0:
+        if rotation_weight<=0:
+            smacof_x = self.iterate(prediction, gt_dists, w).detach()
+        smacof_dists = compute_distances(smacof_x, eps=self.eps)
+        scale_loss = compute_scale_loss(dists, smacof_dists)
+
+    return regression_term + scale_weight*scale_loss + rotation_weight*rotation_loss
+
 
   def forward_objective(self, prediction, dt=None):
 
@@ -319,7 +350,7 @@ def load_priors_from_file(root_folder, device='cuda', eps=10**(-6)):
 def l2(x,w=1.):
       x=x.view(x.shape[0],-1)
       #return (w*(x.pow(2))).sum(-1)
-      return (w*(x.pow(2))).mean(-1)
+      return (w*(x.pow(2))).sum(-1).pow(0.5)/x.shape[1]
 
 def frobenius(x):
       assert len(x.shape)==3
@@ -334,7 +365,7 @@ def l1(x,w=1):
       return torch.norm(x*w,p=1,dim=-1)
 
 
-def compute_rotation_loss(x,y,w):
+def compute_rotation_loss(x,y):
       rot_loss = 0.
       target = torch.eye(x.shape[-1]).unsqueeze(0).to(x.device)
       diag_0 = torch.diag(torch.Tensor([1.,1.,0])).to(x.device)
@@ -347,7 +378,14 @@ def compute_rotation_loss(x,y,w):
             s = torch.sign(xTy.det())
             diag_S = diag_0 + diag_1*s
             R = U*diag_S*Vt
-            rot_loss = rot_loss + w[i]*torch.norm(R-target)
+            rot_loss = rot_loss + torch.norm(R-target)
 
       return rot_loss/x.shape[0]
+
+
+def compute_scale_loss(dist_x,dist_y):
+      max_x,_ = torch.max(dist_x.view(dist_x.shape[0],-1),1)
+      max_y,_ = torch.max(dist_y.view(dist_y.shape[0],-1),1)
+
+      return l2(max_x-max_y)
 
