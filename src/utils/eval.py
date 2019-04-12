@@ -29,7 +29,12 @@ def accuracy_dis(output, target, meta):
   for i in range(batch_size):
     if meta[i, 0] < 1 + ref.eps:
       cnt += 1
-      R, t = horn87(output[i].transpose(), target[i].transpose())
+      try:
+          R, t = horn87(output[i].transpose(), target[i].transpose())
+      except np.linalg.LinAlgError as e:
+          print('iteration %d' % (i))
+          print('OUTPUT:', output[i])
+          print('TARGET:', target[i])
       M = np.dot(R, output[i].transpose()).transpose()
       for j in range(ref.J):
         err += ((M[j, 0] - target[i][j][0]) ** 2 + 

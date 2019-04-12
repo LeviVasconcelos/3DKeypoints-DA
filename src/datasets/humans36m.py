@@ -31,19 +31,31 @@ def _draw_annot(img, pose):
             cv2.circle(img2, tuple(i), 1, (255,0,0), -1)
       return img2
 
-def Humans36mRGBDataset(split, nViews, nImages=200000000):
-      return Humans36mDataset(nViews, split, True, nImages)
+def Humans36mRGBSourceDataset(split, nViews, nImages=200000000):
+      subjects = [0, 1, 2] if split == 'train' else [5,6]
+      return Humans36mDataset(nViews, split, True, nImages, subjects)
 
-def Humans36mDepthDataset(split, nViews, nImages=2000000):
-      return Humans36mDataset(1, split, False, nImages)
+def Humans36mRGBTargetDataset(split, nViews, nImages=200000000):
+      subjects = [3, 4] if split == 'train' else [5,6]
+      return Humans36mDataset(nViews, split, True, nImages, subjects)
+
+
+def Humans36mDepthSourceDataset(split, nViews, nImages=2000000):
+      subjects = [0, 1, 2] if split == 'train' else [5,6]
+      return Humans36mDataset(1, split, False, nImages, subjects)
+
+def Humans36mDepthTargetDataset(split, nViews, nImages=2000000):
+      subjects = [3, 4] if split == 'train' else [5,6]
+      return Humans36mDataset(1, split, False, nImages, subjects)
+
 
 class Humans36mDataset(data.Dataset):
-      def __init__(self, nViews, split='train', rgb=True, nPerSubject=2000):
+      def __init__(self, nViews, split='train', rgb=True, nPerSubject=2000, subjects = [0]):
             self.root_dir = ref.Humans_dir
             self.rgb = rgb
             self.nViews = nViews if self.rgb else 1
             self.split = split
-            self.kTrainSplit = 1
+            #self.kTrainSplit = 3
             self.metadata = H36M_Metadata(os.path.join(self.root_dir, 'metadata.xml'))
             self.imagesPerSubject = nPerSubject
             self.kBlacklist = { 
@@ -51,11 +63,8 @@ class Humans36mDataset(data.Dataset):
                         ('S7', '15', '2'), # TOF video does not exists.
                         ('S5', '4', '2'), # TOF video does not exists.
                         }
-            kSubjects = ['S1', 'S5', 'S6', 'S7', 'S8', 'S9', 'S11'] 
-            if split == 'train':
-                  self.subjects_to_include = kSubjects[:self.kTrainSplit]
-            elif split == 'test':
-                  self.subjects_to_include = kSubjects[self.kTrainSplit:]
+            kSubjects = np.asarray(['S1', 'S5', 'S6', 'S7', 'S8', 'S9', 'S11'])
+            self.subjects_to_include = kSubjects[subjects]
             self.kFolders = {
                         'rgb_cameras' : 'imageSequence',
                         'tof_data' : 'ToFSequence'
@@ -74,7 +83,7 @@ class Humans36mDataset(data.Dataset):
             for i in range(self.len):
                   for j in range(self.kMaxViews):
                         if self.rgb:
-                              self.meta[i,j,0] = 5 if self.split == 'train' else -5
+                              self.meta[i,j,0] = 1 if self.split == 'train' else -1
                         else:
                               self.meta[i,j,0] = 1 if self.split == 'train' else -1
                         self.meta[i,j, 1] = i
@@ -169,6 +178,7 @@ class Humans36mDataset(data.Dataset):
             last_subject = 0
             for i in self.subject_max_idx:
                   #print('building: ', last_subject, i)
+                  #to_use_images = np.arange(last_subject,i,1)[:self.imagesPerSubject]
                   self.access_order += np.random.permutation(np.arange(last_subject,i,1))[:self.imagesPerSubject].tolist()
                   last_subject = i
             np.random.shuffle(self.access_order)
@@ -207,16 +217,20 @@ class Humans36mDataset(data.Dataset):
             
             for k in range(self.nViews):
                   imgs[k] = self._load_image(idx, k).astype(np.float32)
-                  annots[k] = self._get_ref(idx)['Annot']['3d-norm'][k].copy()
-                  mono_pose3d[k] = self._get_ref(idx)['Annot']['3d'][k].copy()
-                  univ_pose3d[k] = self._get_ref(idx)['Annot']['3d-univ'][k].copy()
-                  orig_pose3d[k] = self._get_ref(idx)['Annot']['3d-orignial'][k].copy()
-                  pose_2d += [self._get_ref(idx)['Annot']['2d'][k].copy()]
-                  intrinsics += [self._get_ref(idx)['Annot']['intrinsic'][k].copy()]
+                  if self.rgb:
+                        annots[k] = self._get_ref(idx)['Annot']['3d'][k].copy()
+                  else:
+                        annots[k] = self._get_ref(idx)['Annot']['3d'][1].copy()
+                  #annots[k] = self._get_ref(idx)['Annot']['3d-norm'][k].copy()
+                  #mono_pose3d[k] = self._get_ref(idx)['Annot']['3d'][k].copy()
+                  #univ_pose3d[k] = self._get_ref(idx)['Annot']['3d-univ'][k].copy()
+                  #orig_pose3d[k] = self._get_ref(idx)['Annot']['3d-orignial'][k].copy()
+                  #pose_2d += [self._get_ref(idx)['Annot']['2d'][k].copy()]
+                  #intrinsics += [self._get_ref(idx)['Annot']['intrinsic'][k].copy()]
                   meta[k] = self.meta[idx, k]
             imgs = imgs.transpose(0, 3, 1, 2) / 255.
             inp = torch.from_numpy(imgs)
-            return inp, annots, meta, mono_pose3d, univ_pose3d, orig_pose3d, intrinsics, pose_2d
+            return inp, annots, meta #, mono_pose3d, univ_pose3d, orig_pose3d, intrinsics, pose_2d
       
       def __len__(self):
             return self.len

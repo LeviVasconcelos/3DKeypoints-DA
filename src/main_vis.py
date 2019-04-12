@@ -23,7 +23,7 @@ from utils.utils import createDirIfNonExistent
 from utils.logger import Logger
 
 from opts import opts
-from train import train, validate, test
+from train import train, validate, test, train_source_only, eval_source_only
 from train_with_priors import  train_priors, validate_priors
 from optim_latent import initLatent, stepLatent, getY
 from model import getModel
@@ -38,9 +38,9 @@ args = opts().parse()
 if args.sourceDataset =='ModelNet':
   from datasets.chairs_modelnet import ChairsModelNet as SourceDataset
 elif args.sourceDataset == 'HumansRGB':
-  from datasets.humans36m import Humans36mRGBDataset as SourceDataset
+  from datasets.humans36m import Humans36mRGBSourceDataset as SourceDataset
 elif args.sourceDataset == 'HumansDepth':
-  from datasets.humans36m import Humans36mDepthDataset as SourceDataset
+  from datasets.humans36m import Humans36mDepthSourceDataset as SourceDataset
 else:
   raise Exception("No source dataset: " + args.sourceDataset)
 
@@ -53,9 +53,9 @@ elif args.targetDataset == 'RedwoodRGB':
 elif args.targetDataset == '3DCNN':
   from datasets.chairs_3DCNN import Chairs3DCNN as TargetDataset
 elif args.targetDataset == 'HumansRGB':
-  from datasets.humans36m import Humans36mRGBDataset as TargetDataset
+  from datasets.humans36m import Humans36mRGBTargetDataset as TargetDataset
 elif args.targetDataset == 'HumansDepth':
-  from datasets.humans36m import Humans36mDepthDataset as TargetDataset
+  from datasets.humans36m import Humans36mDepthTargetDataset as TargetDataset
 else:
   raise Exception("No target dataset {}".format(args.targetDataset))
 
@@ -63,13 +63,14 @@ splits = ['train', 'valSource', 'valTarget']
 kHumansDataset = ['HumansRGB', 'HumansDepth']
 DIAL = args.approx_dial
 def main():
+  call_count = 0
   total_runs = args.runs if not args.test else 1
   for run in range(total_runs):
       logger = SummaryWriter(args.logDir+'-run'+str(run))
 
       # Init model
       model = getModel(args)
-      cudnn.benchmark = True
+      cudnn.benchmark = False
 
       # Init optimizer
       optimizer = torch.optim.SGD(model.parameters(), args.LR,
@@ -96,12 +97,13 @@ def main():
       valTarget_loader = torch.utils.data.DataLoader(valTarget_dataset, batch_size = 1, 
                         shuffle=False, num_workers=1, pin_memory=True, collate_fn=collate_fn_cat)
       
-      
-      if not args.shapeConsistency:
+      if not args.shapeConsistency and not args.sourceOnly and not args.test:
             if args.propsOnly:
                   prior_loss = PriorRegressionCriterion(args.propsFile, norm = args.lossNorm, distances_refinement=args.distsRefiner, obj='props')
+            elif args.distsOnly:
+                  prior_loss = PriorRegressionCriterion(args.propsFile, norm = args.lossNorm, distances_refinement=args.distsRefiner, obj='dists')
             else:
-                  prior_loss = PriorSMACOFCriterion(args.propsFile, norm = args.lossNorm, distances_refinement=args.distsRefiner, iterate=False, J=ref.J)
+                  prior_loss = PriorSMACOFCriterion(args.propsFile, norm = args.lossNorm, distances_refinement=args.distsRefiner, iterate=False, J=ref.J, rotation_weight=1, scale_weight=1)
 
       if args.test:
             if not args.shapeConsistency:
@@ -127,7 +129,7 @@ def main():
 
       fusion_loader = torch.utils.data.DataLoader(
               train_dataset, batch_size=args.batchSize, shuffle=not args.test,
-              num_workers=args.workers if not args.test else 1, pin_memory=False, collate_fn=collate_fn_cat)      
+              num_workers=args.workers if not args.test else 1, pin_memory=False, collate_fn=collate_fn_cat)
       trainTarget_loader = torch.utils.data.DataLoader(
               trainTarget_dataset, batch_size=args.batchSize, shuffle=True,
               num_workers=args.workers if not args.test else 1, pin_memory=True, collate_fn=collate_fn_cat)
@@ -136,20 +138,30 @@ def main():
       trainSource_loader = torch.utils.data.DataLoader(
           trainSource_dataset, batch_size=args.batchSize, shuffle=True,
           num_workers=args.workers if not args.test else 1, pin_memory=True, collate_fn=collate_fn_cat)
+      if not args.shapeConsistency and not args.sourceOnly:
+            valSource_mpjpe, valSource_shape,  valSource_loss, valSource_unSuploss = validate_priors(args, 'Source', valSource_loader, model, prior_loss, 0)
+            valTarget_mpjpe, valTarget_shape, valTarget_loss, valTarget_unSuploss = validate_priors(args, 'Target', valTarget_loader, model, prior_loss, 0, plot_img=True, logger=logger)
+            logger.add_scalar('val/source-accuracy', valSource_mpjpe, 0)
+            logger.add_scalar('val/target-accuracy', valTarget_mpjpe, 0)
+            
+            logger.add_scalar('val/target-accuracy', valTarget_mpjpe, 0)
+            logger.add_scalar('val/target-accuracy-shape', valTarget_shape, 0)
+            
+            logger.add_scalar('val/source-regr-loss', valSource_loss, 0)
+            logger.add_scalar('val/target-regr-loss', valTarget_loss, 0)
+            
+            logger.add_scalar('val/source-prior-loss', valSource_unSuploss, 0)
+            logger.add_scalar('val/target-prior-loss', valTarget_unSuploss, 0)
+      elif not args.sourceOnly:
+            valTarget_mpjpe, valTarget_loss, valTarget_unSuploss = validate(args, 'Target', valTarget_loader, model, None, 0, visualize=True, logger=logger)
+            valSource_mpjpe, valSource_loss, valSource_unSuploss = validate(args, 'Source', valSource_loader, model, None, 0)
+            logger.add_scalar('val/target-accuracy', valTarget_mpjpe, 0)
+            logger.add_scalar('val/target-regr-loss', valTarget_loss, 0)
+            logger.add_scalar('val/target-unsup-loss', valTarget_unSuploss, 0)
+            logger.add_scalar('val/source-accuracy', valSource_mpjpe, 0)
+            logger.add_scalar('val/source-regr-loss', valSource_loss, 0)
+            logger.add_scalar('val/source-unsup-loss', valSource_unSuploss, 0)
 
-      valSource_mpjpe, valSource_shape,  valSource_loss, valSource_unSuploss = validate_priors(args, 'Source', valSource_loader, model, prior_loss, 0)
-      valTarget_mpjpe, valTarget_shape, valTarget_loss, valTarget_unSuploss = validate_priors(args, 'Target', valTarget_loader, model, prior_loss, 0, plot_img=True, logger=logger)
-      logger.add_scalar('val/source-accuracy', valSource_mpjpe, 0)
-      logger.add_scalar('val/target-accuracy', valTarget_mpjpe, 0)
-
-      logger.add_scalar('val/target-accuracy', valTarget_mpjpe, 0)
-      logger.add_scalar('val/target-accuracy-shape', valTarget_shape, 0)
-
-      logger.add_scalar('val/source-regr-loss', valSource_loss, 0)
-      logger.add_scalar('val/target-regr-loss', valTarget_loss, 0)
-        
-      logger.add_scalar('val/source-prior-loss', valSource_unSuploss, 0)
-      logger.add_scalar('val/target-prior-loss', valTarget_unSuploss, 0)
 
 
       M = None
@@ -165,7 +177,21 @@ def main():
       print 'Start training...'
       for epoch in range(1, args.epochs + 1):
             adjust_learning_rate(optimizer, epoch, args.dropLR)
-            if args.shapeConsistency:
+            if args.sourceOnly:
+                  #(args, train_loader, model, optimizer, epoch, Views=ref.nViews):
+                  train_source_only(args, trainSource_loader, model, optimizer, epoch)
+                  if epoch % 4 == 0:
+                        #(args, val_loader, model, loss, epoch, plot_img=False, logger=None):
+                        valTarget_regr, valTarget_accuracy, valTarget_shapeLoss = eval_source_only(args, valTarget_loader, model, epoch, plot_img=True, logger=logger)
+                        trainSouce_regr, trainSource_accuracy, trainSource_shapeLoss = eval_source_only(args, trainSource_loader, model, epoch, plot_img=True, logger=logger)
+                        logger.add_scalar('val/target-accuracy', valTarget_accuracy, epoch)
+                        logger.add_scalar('val/target-regr-loss', valTarget_regr, epoch)
+                        logger.add_scalar('val/target-unsup-loss', valTarget_shapeLoss, epoch)
+                        logger.add_scalar('train/source-accuracy', trainSource_accuracy, epoch)
+                        logger.add_scalar('train/source-regr-loss', trainSource_regr, epoch)
+                        logger.add_scalar('train/source-unsup-loss', trainSource_shapeLoss, epoch)
+                        
+            elif args.shapeConsistency:
                   if args.shapeWeight > ref.eps and args.dialModel:
                         train_loader = fusion_loader
                         len_loader = len(train_loader)
@@ -180,23 +206,33 @@ def main():
                   if args.shapeWeight > ref.eps and epoch % args.intervalUpdateM == 0:
                         M = stepLatent(trainTarget_loader, model, M, Y, nViews = args.nViews, lamb = args.lamb, mu = args.mu, S = args.sampleSource, call_count=call_count, dial=DIAL)
                         call_count += 1
-            else:
+                  if epoch % 2 == 0:
+                        valTarget_mpjpe, valTarget_loss, valTarget_unSuploss = validate(args, 'Target', valTarget_loader, model, None, epoch, visualize=True, logger=logger)
+                        logger.add_scalar('val/target-accuracy', valTarget_mpjpe, epoch)
+                        logger.add_scalar('val/target-regr-loss', valTarget_loss, epoch)
+                        logger.add_scalar('val/target-unsup-loss', valTarget_unSuploss, epoch)
+                  if epoch % 5 == 0:
+                        valSource_mpjpe, valSource_loss, valSource_unSuploss = validate(args, 'Source', valSource_loader, model, None, epoch)
+                        logger.add_scalar('val/source-accuracy', valSource_mpjpe, epoch)
+                        logger.add_scalar('val/source-regr-loss', valSource_loss, epoch)
+                        logger.add_scalar('val/source-unsup-loss', valSource_unSuploss, epoch)
+                        
+            elif not args.sourceOnly:
                   train_priors(args, [trainTarget_loader], model, prior_loss, args.batch_norm, logger, optimizer, epoch-1, threshold = args.threshold)
-            valSource_mpjpe, valSource_loss, valSource_unSuploss = validate(args, 'Source', valSource_loader, model, None, epoch)
-            valTarget_mpjpe, valTarget_loss, valTarget_unSuploss = validate(args, 'Target', valTarget_loader, model, None, epoch)
-            
-            if epoch % 2 == 0:
-                  valTarget_mpjpe, valTarget_shape, valTarget_loss, valTarget_unSuploss = validate_priors(args, 'Target', valTarget_loader, model, prior_loss, epoch, plot_img=True, logger=logger)
-                  logger.add_scalar('val/target-accuracy', valTarget_mpjpe, epoch)
-                  logger.add_scalar('val/target-accuracy-shape', valTarget_shape, epoch)
-                  logger.add_scalar('val/target-regr-loss', valTarget_loss, epoch)
-                  logger.add_scalar('val/target-prior-loss', valTarget_unSuploss, epoch)
                   
-            if epoch % 5 == 0:
-                  valSource_mpjpe, valSource_shape, valSource_loss, valSource_unSuploss = validate_priors(args, 'Source', valSource_loader, model, prior_loss, epoch)
-                  logger.add_scalar('val/source-accuracy', valSource_mpjpe, epoch)
-                  logger.add_scalar('val/source-prior-loss', valSource_unSuploss, epoch)
-                  logger.add_scalar('val/source-regr-loss', valSource_loss, epoch)
+                  if epoch % 2 == 0:
+                        valTarget_mpjpe, valTarget_shape, valTarget_loss, valTarget_unSuploss = validate_priors(args, 'Target', valTarget_loader, model, prior_loss, epoch, plot_img=True, logger=logger)
+                        logger.add_scalar('val/target-accuracy', valTarget_mpjpe, epoch)
+                        logger.add_scalar('val/target-accuracy-shape', valTarget_shape, epoch)
+                        logger.add_scalar('val/target-regr-loss', valTarget_loss, epoch)
+                        logger.add_scalar('val/target-prior-loss', valTarget_unSuploss, epoch)
+                  
+                  if epoch % 5 == 0:
+                        valSource_mpjpe, valSource_shape, valSource_loss, valSource_unSuploss = validate_priors(args, 'Source', valSource_loader, model, prior_loss, epoch)
+                        logger.add_scalar('val/source-accuracy', valSource_mpjpe, epoch)
+                        logger.add_scalar('val/source-prior-loss', valSource_unSuploss, epoch)
+                        logger.add_scalar('val/source-regr-loss', valSource_loss, epoch)
+                        
             if epoch % 10 == 0:
                   torch.save({
                               'epoch': epoch + 1,

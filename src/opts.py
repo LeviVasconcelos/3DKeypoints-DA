@@ -17,6 +17,7 @@ class opts():
     self.parser.add_argument('-shapeConsistency', action = 'store_true', help='whether to use the baseline loss for DA')
     self.parser.add_argument('-weightedNorm', action = 'store_true', help='whether to use the std while computing the loss')
     self.parser.add_argument('-propsOnly', action = 'store_true', help='whether to use just proportion distances as loss')
+    self.parser.add_argument('-distsOnly', action = 'store_true', help='whether to use just distances as loss')
     self.parser.add_argument('-lossNorm', default='l2', type=str, 
                                help='l2 | l1 | frobenius')
     self.parser.add_argument('-distsRefiner', default=None, type=str, 
@@ -56,6 +57,7 @@ class opts():
     self.parser.add_argument('-AVG', action = 'store_true', help='')
     
     self.parser.add_argument('-shapenetAnnot', default='No', type=str, help='No | All')
+    self.parser.add_argument('-sourceOnly', action='store_true', help='Training only source')
     
     self.parser.add_argument('-sampleSource', default=1, type = int, help='sample source domain')
     self.parser.add_argument('-lamb', default=1, type = float, help='lamb')
