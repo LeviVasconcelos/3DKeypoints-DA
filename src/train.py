@@ -35,7 +35,7 @@ def source_only_train_step(args, epoch, loader, model, optimizer = None, device 
             output = model(input_var)
             
             #loss = ((output - target_var.view(target_var.shape[0],-1)) ** 2).sum() / ref.J / 3 / input.shape[0]
-            loss = L1_crit(input_var, target_var)
+            loss = torch.abs(output - target_var.view(target_var.shape[0],-1)).sum() / ref.J / 3 / input.shape[0]
             regression_loss.append(loss.item())
             accumulate_loss += loss.item()
             count_loss += 1.
