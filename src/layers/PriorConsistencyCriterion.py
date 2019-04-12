@@ -381,7 +381,7 @@ def compute_rotation_loss(x,y):
             diag_S = diag_0 + (diag_1*s)
             R = torch.mm(U, torch.mm(diag_S, Vt.t()))
             I = torch.mm(R, R.t())
-            assert((I - torch.eye(3).to(x.device)).sum() < 0.0000001) #DEBUG PURPOSE
+            assert((I - torch.eye(3).to(x.device)).sum().item() < 1e-4) #DEBUG PURPOSE
             rot_loss = rot_loss + torch.norm(R-target)
       return rot_loss/x.shape[0]
 
