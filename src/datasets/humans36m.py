@@ -97,7 +97,8 @@ class Humans36mDataset(data.Dataset):
             
             rgb_folder = os.path.join(rgb_cameras_folder, self.kCameras[0])
             #print('index length: ', len(index))
-            
+            self.means = []
+            self.std = []
             # Fill in annotations
             annot_file = os.path.join(folder, self.kAnnotationsFilename)
             with h5py.File(annot_file, 'r') as file:
@@ -108,13 +109,14 @@ class Humans36mDataset(data.Dataset):
                   pose2d = file['pose/2d'].value
                   cameras = file['camera'].value
                   pose3d = file['pose/3d'].value
+                  # Normalization by the pelvis
+                  pose3d = pose3d - pose3d[:, 0].reshape(pose3d.shape[0], 1, pose3d.shape[2])
                   pose3d_univ = file['pose/3d-univ'].value
                   pose3d_original = file['pose/3d-original'].value
                   intrinsic = file['intrinsics']
                   instrinsic_univ = file['intrinsics-univ']
                   index = [{'Views': [], 
                             'Annot': {
-                                        '3d-norm': [], 
                                         'bbox': [], 
                                         '2d': [], 
                                         '3d':[], 
@@ -133,7 +135,6 @@ class Humans36mDataset(data.Dataset):
                               filename = 'img_%06d.jpg' % f
                               tof_filename = 'tof_range%06d.jpg' % f
                               index[k]['Views'] += [os.path.join(rgb_folder, filename)]
-                              index[k]['Annot']['3d-norm'] += [pose3d_norm[i]-np.mean(pose3d_norm[i],0)]
                               index[k]['Annot']['bbox'] += [bbox[i]]
                               index[k]['Annot']['2d'] += [pose2d[i]]
                               index[k]['Annot']['3d'] += [pose3d[i]]
@@ -146,12 +147,12 @@ class Humans36mDataset(data.Dataset):
                                     index[k]['TOF'] = [os.path.join(tof_folder, tof_filename)]
                   except IndexError as e:
                         print(e)
-                                    
-            return index
+            return index, pose3d
       
       def _build_indexes(self):
             self.dataset_indexes = []
             self.subject_max_idx = []
+            self.all_poses = np.asarray([])
             subactions = []
             for subject in self.subjects_to_include:
                   subactions += [ 
@@ -168,10 +169,24 @@ class Humans36mDataset(data.Dataset):
                   if last_subject != subject:
                         last_subject = subject
                         self.subject_max_idx += [len(self.dataset_indexes)]
-                  self.dataset_indexes += self._process_subaction(subject, action, subaction)
+                  indexes, poses = self._process_subaction(subject, action, subaction)
+                  self.all_poses = poses if len(self.all_poses) == 0 else np.concatenate((self.all_poses, poses))
+                  self.dataset_indexes += indexes
             #print('Subject max idxes: ', self.subject_max_idx)
             self.subject_max_idx += [len(self.dataset_indexes)]
             self.len = len(self.dataset_indexes)
+            self._compute_pose_statistics_and_free_poses()
+            
+      def _compute_pose_statistics_and_free_poses(self):
+            self.poses_mean = np.mean(self.all_poses, 0)
+            self.poses_std = np.std(self.all_poses, 0)
+            del self.all_poses
+      
+      def _normalize_pose(self, pose):
+            return (pose - self.poses_mean) / (self.poses_std + 1e-7)
+      
+      def _unnormalize_pose(self, pose):
+            return pose *  (self.poses_std + 1e-7) + self.poses_mean
       
       def _build_access_index(self):
             self.access_order = []
@@ -203,6 +218,9 @@ class Humans36mDataset(data.Dataset):
                   #print('filename: ', filename)
             return cv2.imread(filename)
       
+      def _get_normalization_statistics(self):
+            return self.poses_mean, (self.poses_std + 1e-7)
+      
       def __getitem__(self, index):
             idx = index % self.len
             #print(idx, self.access_order[idx])
@@ -218,9 +236,9 @@ class Humans36mDataset(data.Dataset):
             for k in range(self.nViews):
                   imgs[k] = self._load_image(idx, k).astype(np.float32)
                   if self.rgb:
-                        annots[k] = self._get_ref(idx)['Annot']['3d'][k].copy()
+                        annots[k] = self._normalize_pose(self._get_ref(idx)['Annot']['3d'][k].copy())
                   else:
-                        annots[k] = self._get_ref(idx)['Annot']['3d'][1].copy()
+                        annots[k] = self._normalize_pose(self._get_ref(idx)['Annot']['3d'][1].copy())
                   #annots[k] = self._get_ref(idx)['Annot']['3d-norm'][k].copy()
                   #mono_pose3d[k] = self._get_ref(idx)['Annot']['3d'][k].copy()
                   #univ_pose3d[k] = self._get_ref(idx)['Annot']['3d-univ'][k].copy()
