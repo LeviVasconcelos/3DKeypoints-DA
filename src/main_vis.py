@@ -70,7 +70,7 @@ def main():
 
       # Init model
       model = getModel(args)
-      cudnn.benchmark = True
+      cudnn.benchmark = False
 
       # Init optimizer
       optimizer = torch.optim.SGD(model.parameters(), args.LR,
@@ -183,9 +183,13 @@ def main():
                   if epoch % 4 == 0:
                         #(args, val_loader, model, loss, epoch, plot_img=False, logger=None):
                         valTarget_regr, valTarget_accuracy, valTarget_shapeLoss = eval_source_only(args, valTarget_loader, model, epoch, plot_img=True, logger=logger)
+                        trainSouce_regr, trainSource_accuracy, trainSource_shapeLoss = eval_source_only(args, trainSource_loader, model, epoch, plot_img=True, logger=logger)
                         logger.add_scalar('val/target-accuracy', valTarget_accuracy, epoch)
                         logger.add_scalar('val/target-regr-loss', valTarget_regr, epoch)
                         logger.add_scalar('val/target-unsup-loss', valTarget_shapeLoss, epoch)
+                        logger.add_scalar('train/source-accuracy', trainSource_accuracy, epoch)
+                        logger.add_scalar('train/source-regr-loss', trainSource_regr, epoch)
+                        logger.add_scalar('train/source-unsup-loss', trainSource_shapeLoss, epoch)
                         
             elif args.shapeConsistency:
                   if args.shapeWeight > ref.eps and args.dialModel:
