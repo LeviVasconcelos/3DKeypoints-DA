@@ -28,12 +28,14 @@ def source_only_train_step(args, epoch, loader, model, optimizer = None, device 
       bar = Bar('{}'.format(ref.category), max=len(loader))
       accumulate_loss = 0.
       count_loss = 0.
+      L1_crit = torch.nn.L1Loss()
       for i, (input, target, meta) in enumerate(loader):
             input_var = input.to(device)
             target_var = target.to(device)
             output = model(input_var)
             
-            loss = ((output - target_var.view(target_var.shape[0],-1)) ** 2).sum() / ref.J / 3 / input.shape[0]
+            #loss = ((output - target_var.view(target_var.shape[0],-1)) ** 2).sum() / ref.J / 3 / input.shape[0]
+            loss = L1_crit(input_var, target_var)
             regression_loss.append(loss.item())
             accumulate_loss += loss.item()
             count_loss += 1.
