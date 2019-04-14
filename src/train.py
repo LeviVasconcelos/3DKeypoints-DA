@@ -51,22 +51,32 @@ def source_only_train_step(args, epoch, loader, model, optimizer = None, device 
       return np.array(regression_loss).mean()
 
 
-def source_only_eval(args, epoch, loader, model, plot_img = False, logger = None, device='cuda'):
+def source_only_eval(args, epoch, loader, model, plot_img = False, logger = None, device='cuda', statistics=None, net_statistics=None):
+
       regr_loss = []
       accuracy_this = []
       accuracy_shape = []
       
       device = 'cuda'
       model.eval()
+      mean, std = statistics
+      mean = torch.from_numpy(mean).float().to(device)
+      std = torch.from_numpy(std).float().to(device)
+      net_mean, net_std = net_statistics
+      net_mean = torch.from_numpy(net_mean).float().to(device)
+      net_std = torch.from_numpy(net_std).float().to(device)
+
       for i, (input, target, meta) in enumerate(loader):
             input_var = input.to(device)
             target_var = target.to(device)
             output = model(input_var)
             
-            loss = ((output - target_var.view(target_var.shape[0],-1)) ** 2).sum() / ref.J / 3 / input.shape[0]
-
-            current_acc = accuracy(output.data, target, meta)
-            current_acc_shape = accuracy_dis(output.data, target, meta)
+            #loss = ((output - target_var.view(target_var.shape[0],-1)) ** 2).sum() / ref.J / 3 / input.shape[0]
+            loss = torch.abs(output - target_var.view(target_var.shape[0],-1)).sum() / ref.J / 3 / input.shape[0]
+            unormed_output = (output.view(input.shape[0], ref.J, 3) * net_std) + net_mean
+            unormed_target = (target_var * std) + mean
+            current_acc = accuracy(unormed_output.view(target_var.shape[0], -1).data, unormed_target.data, meta)
+            current_acc_shape = accuracy_dis(unormed_output.view(target_var.shape[0], -1).data, unormed_target.data, meta)
             
             accuracy_this.append(current_acc.item())
             accuracy_shape.append(current_acc_shape.item())
@@ -79,8 +89,8 @@ def source_only_eval(args, epoch, loader, model, plot_img = False, logger = None
                   #filename_2d = os.path.join(args.save_path, 'img2d_%s_%d_%d.png' % (args.expID, i, epoch))
                   #cv2.imwrite(filename_2d, numpy_img)
                   if i < 10:
-                        pred = output.data.cpu().numpy()[0].copy()
-                        gt = target.data.cpu().numpy()[0].copy()
+                        pred = unormed_output.data.cpu().numpy()[0].copy()
+                        gt = unormed_target.data.cpu().numpy()[0].copy()
                         #numpy_img = draw_2d(numpy_img, pred, (255,0,0))
                         #numpy_img = draw_2d(numpy_img, gt, (0,0,255))
                         #filename_2d = os.path.join(args.save_path, 'img2d_%s_%d_%d.png' % (args.expID, i, epoch))
@@ -93,6 +103,7 @@ def source_only_eval(args, epoch, loader, model, plot_img = False, logger = None
                         filename_3d = os.path.join(args.save_path, 'img3d_%s_%d_%d.png' % (args.expID, i, epoch))
                         plt.savefig(filename_3d)
                         logger.add_image('Image 3D ' + str(i), (np.asarray(Image.open(filename_3d))).transpose(2,0,1), epoch)
+                        plt.close()
                         #logger.add_image('Image 2D ' + str(i), (np.asarray(Image.open(filename_2d))).transpose(2,0,1), epoch)
                       
       return np.array(regr_loss).mean(), np.array(accuracy_this).mean(), np.array(accuracy_shape).mean()
@@ -281,9 +292,9 @@ def dial_step(args, split, epoch, (loader, len_loader), model, optimizer = None,
 def train_source_only(args, train_loader, model, optimizer, epoch):
       return source_only_train_step(args, epoch, train_loader, model, optimizer, device = 'cuda')
 
-def eval_source_only(args, val_loader, model, epoch, plot_img=False, logger=None):
+def eval_source_only(args, val_loader, model, epoch, plot_img=False, logger=None, statistics=None, net_statistics=None):
       #(args, epoch, loader, model, plot_img = False, logger = None, device='cuda'):
-      return source_only_eval(args, epoch, val_loader, model, plot_img = plot_img, logger = logger)
+      return source_only_eval(args, epoch, val_loader, model, plot_img = plot_img, logger = logger, statistics=statistics, net_statistics=net_statistics)
 
 def train(args, train_loader, model, optimizer, M, epoch, dial=False, nViews=ref.nViews):
   return step(args, 'train', epoch, train_loader, model, optimizer, M = M, dial=dial)
