@@ -33,3 +33,24 @@ def extract(args, loader, model, nViews=ref.nViews):
   return dist, props#np.asarray(props)
 
 
+def extract_gt(loader, nViews=ref.nViews):
+  model.eval()
+  nViews = loader.dataset.nViews
+  dist = []
+  props = []
+  for i, (_, target, _) in enumerate(loader):  
+    target_var = torch.autograd.Variable(target)
+    for j in range(input.numpy().shape[0]):
+        gt = target.cpu()[j]#.numpy()[j]
+        cdist = prior.compute_distances(gt)
+        dist.append(cdist.numpy())
+        props.append(prior.compute_proportions(cdist).numpy())
+        
+  dist_arrays = np.zeros((len(dist),10,10))
+  props_arrays = np.zeros((len(dist),100,100))
+  for i in range(len(dist)):
+        dist_arrays[i]=dist[i]
+        props_arrays[i]=props[i]
+  return dist, props #np.asarray(props)
+
+
