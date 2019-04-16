@@ -31,12 +31,12 @@ def _draw_annot(img, pose):
             cv2.circle(img2, tuple(i), 1, (255,0,0), -1)
       return img2
 
-def Humans36mRGBSourceDataset(split, nViews, nImages=200000000):
-      subjects = [0, 1, 2] if split == 'train' else [5,6]
+def Humans36mRGBSourceDataset(split, nViews, nImages=200):
+      subjects = [0] if split == 'train' else [5,6]
       return Humans36mDataset(nViews, split, True, nImages, subjects)
 
-def Humans36mRGBTargetDataset(split, nViews, nImages=200000000):
-      subjects = [3, 4] if split == 'train' else [5,6]
+def Humans36mRGBTargetDataset(split, nViews, nImages=200):
+      subjects = [3] if split == 'train' else [5,6]
       return Humans36mDataset(nViews, split, True, nImages, subjects)
 
 
@@ -186,7 +186,7 @@ class Humans36mDataset(data.Dataset):
             return (pose - self.poses_mean) / (self.poses_std + 1e-7)
       
       def _unnormalize_pose(self, pose):
-            return pose *  (self.poses_std + 1e-7) + self.poses_mean
+            return pose *  (torch.from_numpy(self.poses_std).float().to('cuda') + 1e-7) + torch.tensor(self.poses_mean).float().to('cuda')
       
       def _build_access_index(self):
             self.access_order = []
