@@ -127,16 +127,16 @@ def train_step(args, split, epoch, loader, model, loss, update_bn=True, logger=N
   idx_0 = len(loader)*epoch
 
   
-  for i, (input, _, _) in enumerate(loader):
+  for i, (input, target, _) in enumerate(loader):
     input_var = input.to(device)
+    target_var = target.to(device)
     output = model(input_var)
-
-    cr_loss = loss(output)
+    cr_loss = loss(output, dt=target_var)
     if torch.isnan(output).sum() > 0:
         print('OUTPUT WITH NANS DURING TRAINING %d' % i)
         return
     cr_loss = (cr_loss).mean()
-    print(cr_loss.item())
+    #print(cr_loss.item())
 
     #rotation_loss = compute_rotation_loss(old_output.view(input.shape[0],10,3), output.view(input.shape[0],10,3), w)
 
@@ -178,7 +178,7 @@ def eval_step(args, split, epoch, loader, model, loss, update=True, optimizer = 
     accuracy_shape.append(current_acc_shape.item())
     
     regr_loss.append(cr_regr_loss.item())
-    cr_loss = loss(output).mean()
+    cr_loss = loss(output, dt=target_var).mean()
     numpy_img = None
     #if plot_img:
           #numpy_img = (input.numpy()[0] * 255).transpose(1, 2, 0).astype(np.uint8)

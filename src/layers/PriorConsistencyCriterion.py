@@ -215,7 +215,8 @@ class PriorSMACOFCriterion(AbstractPriorLoss):
 
     prediction = prediction.view(prediction.shape[0],self.J,-1)
 
-    dists = compute_distances(prediction, eps=self.eps)
+    dists = compute_distances(dt, eps=self.eps)
+    #dists = compute_distances(prediction, eps=self.eps)
     props = compute_proportions(dists, eps=self.eps).view(dists.shape[0],self.J,self.J,self.J,self.J)
     gt_dists = self.refiner(dists,props)*(1.-self.eyeJ)
 
