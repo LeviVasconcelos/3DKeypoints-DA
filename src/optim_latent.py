@@ -31,6 +31,16 @@ def getY(dataset):
     Y[i] = np.dot(np.dot(RotMat('Z', rotZ), RotMat('Y', rotY)), y.transpose(1, 0)).transpose(1, 0)
     Y_raw[i] = y.copy()
   return Y, Y_raw
+
+def getYHumans(dataset):
+  N = dataset.nImages
+  Y_raw = np.zeros((N, ref.J, 3))
+  for i in range(dataset.len):
+    _, y, _ = dataset.__getitem__(i)
+    for k in range(dataset.nViews):
+        Y_raw[(i*dataset.nViews) + k] = y[k].copy()
+  return Y_raw, Y_raw
+ 
   
 def initLatent(loader, model, Y, nViews, S, AVG = False, dial=False):
   model.eval()

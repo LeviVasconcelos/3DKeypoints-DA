@@ -32,7 +32,7 @@ def main():
       print('celled....')  
       #if os.path.exists(args.propsFile+'-source-distances.npy'):
       print('data loaded')
-      if not os.path.exists(args.propsFile+'-source-distances.npy'):
+      if not os.path.exists(args.propsFile+'-distances.npy'):
           target_dataset = TargetDataset('train', args.nViews)
           dataset_loader = torch.utils.data.DataLoader(
                target_dataset, batch_size=args.batchSize, shuffle=not args.test,
@@ -41,11 +41,11 @@ def main():
           dist = dist.reshape((dist.shape[0], dist.shape[2], dist.shape[3]))
           mean = dist.mean(0)
           std = dist.std(0)
-          np.save(args.propsFile+'-source-distances.npy', dist)
-          np.save(args.propsFile+'-source-distances-mean.npy', mean)
-          np.save(args.propsFile+'-source-distances-std.npy', std)
+          np.save(args.propsFile+'-distances.npy', dist)
+          np.save(args.propsFile+'_MeanDists.npy', mean.reshape((1, mean.shape[0], mean.shape[1])))
+          np.save(args.propsFile+'_StdDists.npy', std.reshape((1, std.shape[0], std.shape[1])))
       else:
           print('loading distances')
-          dist = np.load(args.propsFile+'-source-distances.npy')
-      props,_ = extract_props_from_dists(dist)
+          dist = np.load(args.propsFile+'-distances.npy')
+      props,_ = extract_props_from_dists(dist, args.propsFile)
 main()      
