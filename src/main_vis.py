@@ -25,7 +25,7 @@ from utils.logger import Logger
 from opts import opts
 from train import train, validate, test, train_source_only, eval_source_only
 from train_with_priors import  train_priors, validate_priors
-from optim_latent import initLatent, stepLatent, getY
+from optim_latent import initLatent, stepLatent, getY, getYHumans
 from model import getModel
 from utils.utils import collate_fn_cat
 from extract_priors import extract
@@ -83,7 +83,7 @@ def main():
       if args.targetDataset in kHumansDataset or args.sourceDataset in kHumansDataset:
             assert(ref.nViews <= 4)
             assert(args.nViews <= 4)
-            assert(ref.J == 32)
+            assert(ref.J == 17)
             assert(ref.category == 'Human')
             assert(ref.nValViews <= 4)
 
@@ -153,8 +153,8 @@ def main():
             logger.add_scalar('val/source-prior-loss', valSource_unSuploss, 0)
             logger.add_scalar('val/target-prior-loss', valTarget_unSuploss, 0)
       elif not args.sourceOnly:
-            valTarget_mpjpe, valTarget_loss, valTarget_unSuploss = validate(args, 'Target', valTarget_loader, model, None, 0, visualize=True, logger=logger)
-            valSource_mpjpe, valSource_loss, valSource_unSuploss = validate(args, 'Source', valSource_loader, model, None, 0)
+            valTarget_mpjpe, valTarget_loss, valTarget_unSuploss = validate(args, 'Target', valTarget_loader, model, None, 0, visualize=True, logger=logger, unnorm_net=trainSource_dataset._unnormalize_pose, unnorm_tgt=valTarget_dataset._unnormalize_pose)
+            valSource_mpjpe, valSource_loss, valSource_unSuploss = validate(args, 'Source', valSource_loader, model, None, 0, unnorm_net=trainSource_dataset._unnormalize_pose, unnorm_tgt=valSource_dataset._unnormalize_pose)
             logger.add_scalar('val/target-accuracy', valTarget_mpjpe, 0)
             logger.add_scalar('val/target-regr-loss', valTarget_loss, 0)
             logger.add_scalar('val/target-unsup-loss', valTarget_unSuploss, 0)
@@ -169,7 +169,7 @@ def main():
             print 'getY...'
             if args.dialModel:
                   model.set_domain(source=False)
-            Y, Y_raw = getY(SourceDataset('train', args.nViews))
+            Y, Y_raw = getY(SourceDataset('train', args.nViews)) if ref.category == 'Chair' else getYHumans(SourceDataset('train', args.nViews))
             np.save('RotatedY-' + args.sourceDataset + '.npy', Y)
             np.save('RotatedYRaw-' + args.sourceDataset + '.npy', Y_raw)
             print 'RotatedY-' + args.sourceDataset + '.npy' + ' Was saved...'
@@ -209,12 +209,12 @@ def main():
                         M = stepLatent(trainTarget_loader, model, M, Y, nViews = args.nViews, lamb = args.lamb, mu = args.mu, S = args.sampleSource, call_count=call_count, dial=DIAL)
                         call_count += 1
                   if epoch % 2 == 0:
-                        valTarget_mpjpe, valTarget_loss, valTarget_unSuploss = validate(args, 'Target', valTarget_loader, model, None, epoch, visualize=True, logger=logger)
+                        valTarget_mpjpe, valTarget_loss, valTarget_unSuploss = validate(args, 'Target', valTarget_loader, model, None, epoch, visualize=True, logger=logger, unnorm_net=trainSource_dataset._unnormalize_pose, unnorm_tgt=valTarget_dataset._unnormalize_pose)
                         logger.add_scalar('val/target-accuracy', valTarget_mpjpe, epoch)
                         logger.add_scalar('val/target-regr-loss', valTarget_loss, epoch)
                         logger.add_scalar('val/target-unsup-loss', valTarget_unSuploss, epoch)
                   if epoch % 5 == 0:
-                        valSource_mpjpe, valSource_loss, valSource_unSuploss = validate(args, 'Source', valSource_loader, model, None, epoch)
+                        valSource_mpjpe, valSource_loss, valSource_unSuploss = validate(args, 'Source', valSource_loader, model, None, epoch, unnorm_net=trainSource_dataset._unnormalize_pose, unnorm_tgt=valSource_dataset._unnormalize_pose)
                         logger.add_scalar('val/source-accuracy', valSource_mpjpe, epoch)
                         logger.add_scalar('val/source-regr-loss', valSource_loss, epoch)
                         logger.add_scalar('val/source-unsup-loss', valSource_unSuploss, epoch)

@@ -109,7 +109,7 @@ def source_only_eval(args, epoch, loader, model, plot_img = False, logger = None
       return np.array(regr_loss).mean(), np.array(accuracy_this).mean(), np.array(accuracy_shape).mean()
 
 
-def step(args, split, epoch, loader, model, optimizer = None, M = None, f = None, tag = None, dial=False, nViews=ref.nViews, visualize=False, logger=None):
+def step(args, split, epoch, loader, model, optimizer = None, M = None, f = None, tag = None, dial=False, nViews=ref.nViews, visualize=False, logger=None, unnorm_net=(lambda pose:pose), unnorm_tgt=(lambda pose:pose)):
   losses, mpjpe, mpjpe_r = AverageMeter(), AverageMeter(), AverageMeter()
   viewLosses, shapeLosses, supLosses = AverageMeter(), AverageMeter(), AverageMeter()
   
@@ -133,6 +133,8 @@ def step(args, split, epoch, loader, model, optimizer = None, M = None, f = None
     input_var = input.cuda()
     target_var = target
     output = model(input_var)
+    target_var = unnorm_tgt(target_var.cuda()).cpu()
+    output = unnorm_net(output.view(input.shape[0], ref.J, 3)).view(input.shape[0], -1)
     loss = ShapeConsistencyCriterion(nViews, supWeight = 1, unSupWeight = args.shapeWeight, M = M)(output.cpu(), target_var, meta)
 
     '''if split == 'test':
@@ -161,10 +163,10 @@ def step(args, split, epoch, loader, model, optimizer = None, M = None, f = None
           if i < 10:
                 pred = output.data.cpu().numpy()[0].copy()
                 gt = target.data.cpu().numpy()[0].copy()
-                numpy_img = draw_2d(numpy_img, pred, (255,0,0))
-                numpy_img = draw_2d(numpy_img, gt, (0,0,255))
-                filename_2d = os.path.join(args.save_path, 'img2d_%s_%d_%d.png' % (args.expID, i, epoch))
-                cv2.imwrite(filename_2d, numpy_img)
+                #numpy_img = draw_2d(numpy_img, pred, (255,0,0))
+                #numpy_img = draw_2d(numpy_img, gt, (0,0,255))
+                #filename_2d = os.path.join(args.save_path, 'img2d_%s_%d_%d.png' % (args.expID, i, epoch))
+                #cv2.imwrite(filename_2d, numpy_img)
                 fig = plt.figure()
                 ax = fig.add_subplot((111), projection='3d')
                 draw_3d(ax, pred, 'r')
@@ -173,7 +175,7 @@ def step(args, split, epoch, loader, model, optimizer = None, M = None, f = None
                 filename_3d = os.path.join(args.save_path, 'img3d_%s_%d_%d.png' % (args.expID, i, epoch))
                 plt.savefig(filename_3d)
                 logger.add_image('Image 3D ' + str(i), (np.asarray(Image.open(filename_3d))).transpose(2,0,1), epoch)
-                logger.add_image('Image 2D ' + str(i), (np.asarray(Image.open(filename_2d))).transpose(2,0,1), epoch)
+                #logger.add_image('Image 2D ' + str(i), (np.asarray(Image.open(filename_2d))).transpose(2,0,1), epoch)
 
     mpjpe_this = accuracy(output.data, target, meta)
     mpjpe_r_this = accuracy_dis(output.data, target, meta)
@@ -296,11 +298,11 @@ def eval_source_only(args, val_loader, model, epoch, plot_img=False, logger=None
       #(args, epoch, loader, model, plot_img = False, logger = None, device='cuda'):
       return source_only_eval(args, epoch, val_loader, model, plot_img = plot_img, logger = logger, statistics=statistics, net_statistics=net_statistics)
 
-def train(args, train_loader, model, optimizer, M, epoch, dial=False, nViews=ref.nViews):
-  return step(args, 'train', epoch, train_loader, model, optimizer, M = M, dial=dial)
+def train(args, train_loader, model, optimizer, M, epoch, dial=False, nViews=ref.nViews, unnorm_net=(lambda pose:pose), unnorm_tgt=(lambda pose:pose)):
+  return step(args, 'train', epoch, train_loader, model, optimizer, M = M, dial=dial, unnorm_net=unnorm_net, unnorm_tgt=unnorm_tgt)
 
-def validate(args, supTag, val_loader, model, M, epoch, visualize=False, logger=None):
-  return step(args, 'val' + supTag, epoch, val_loader, model, M = M, visualize=visualize, logger=logger)
+def validate(args, supTag, val_loader, model, M, epoch, visualize=False, logger=None, unnorm_net=(lambda pose:pose), unnorm_tgt=(lambda pose:pose)):
+  return step(args, 'val' + supTag, epoch, val_loader, model, M = M, visualize=visualize, logger=logger, unnorm_net=unnorm_net, unnorm_tgt=unnorm_tgt)
 
 def test(args, loader, model, M, f, tag):
   return step(args, 'test', 0, loader, model, M = M, f = f, tag = tag)

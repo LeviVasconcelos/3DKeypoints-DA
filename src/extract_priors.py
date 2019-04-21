@@ -42,10 +42,11 @@ def compute_proportions_np(x, eps=1e-6):
     #assert(np.isnan(mm).sum() < 1)
     return mm
 
-def extract_props_from_dists(dists):
-  dd = dists.reshape((dists.shape[0], ref.J, ref.J))
-  mean = np.zeros((ref.J**2, ref.J**2))
-  std = np.zeros((ref.J**2, ref.J**2))
+def extract_props_from_dists(dists, prefix=''):
+  #dd = dists.reshape((dists.shape[0], ref.J, ref.J))
+  dd = dists
+  mean = np.zeros((dd.shape[1]**2, dd.shape[1]**2))
+  std = np.zeros((dd.shape[1]**2, dd.shape[1]**2))
   #for i in range(0,dists.shape[0], b):
   for d in tqdm(dd):
       #x = (prior.compute_proportions(dd[i:i+b]).to('cuda'))
@@ -53,13 +54,13 @@ def extract_props_from_dists(dists):
       #print(x.shape)
       mean += x
   mean /= float(dd.shape[0])
-  np.save('proportions_mean.npy', mean)
+  np.save(prefix + '_MeanProp.npy', mean.reshape((1, mean.shape[0], mean.shape[1])))
   for d in tqdm(dd):
       x = compute_proportions_np(d)
       std += (x - mean)**2 
   std /= float(dd.shape[0])
   std = np.sqrt(std)
-  np.save('proportions_std.npy', std)
+  np.save(prefix + '_StdProp.npy', std.reshape((1, std.shape[0], std.shape[1])))
   return mean, std 
       
 

@@ -158,20 +158,20 @@ def eval_step(args, split, epoch, loader, model, loss, update=True, optimizer = 
   accuracy_shape = []
 
   model.eval()
+  if update:
+    model.train()
   draw_2d = chair_show2D if ref.category == 'Chair' else human_show2D
   draw_3d = chair_show3D if ref.category == 'Chair' else human_show3D
 
   for i, (input, target, meta) in enumerate(loader):
-    input_var = input.to(device)
+    input_var = input.to(device).detach()
     target_var = target.to(device)
-    output = model(input_var)
-    if torch.isnan(input_var).sum() > 0:
-        print('INPUT WITH NANS')
+    output = model(input_var).detach()
+    unnormed_prediction = unnorm_net(output.view(input.shape[0], ref.J, 3))
+    unnormed_gt = unnorm_tgt(target_var)
     if torch.isnan(output).sum() > 0:
         print('OUTPUT WITH NANS')
     cr_regr_loss = ((output - target_var.view(target_var.shape[0],-1)) ** 2).sum() / ref.J / 3 / input.shape[0]
-    unnormed_prediction = unnorm_net(output.view(input.shape[0], ref.J, 3))
-    unnormed_gt = unnorm_tgt(target_var)
     current_acc = accuracy(unnormed_prediction.view(target_var.shape[0], -1).data, unnormed_gt.data, meta)
     current_acc_shape = accuracy_dis(unnormed_prediction.view(target_var.shape[0], -1).data, unnormed_gt.data, meta)
     accuracy_this.append(current_acc.item())
@@ -204,14 +204,11 @@ def eval_step(args, split, epoch, loader, model, loss, update=True, optimizer = 
 
   return np.array(accuracy_this).mean(),np.array(accuracy_shape).mean(), np.array(regr_loss).mean(), np.array(prior_loss).mean()
 
-
-
-
 def train_priors(args, train_loader, model, loss, update_bn, logger, optimizer, epoch, nViews=ref.nViews, threshold = 0.9):
   return train_step(args, 'train', epoch, train_loader[0], model, loss, update_bn, logger, optimizer, threshold=threshold)
 
-def validate_priors(args, supTag, val_loader, model, loss, epoch,plot_img=False, logger=None, unnorm_net=(lambda pose:pose), unnorm_tgt=(lambda pose:pose)):
-  return eval_step(args, 'val' + supTag, epoch, val_loader, model,loss,plot_img = plot_img, logger = logger, unnorm_net=unnorm_net, unnorm_tgt=unnorm_tgt)
+def validate_priors(args, supTag, val_loader, model, loss, epoch, update = False, plot_img=False, logger=None, unnorm_net=(lambda pose:pose), unnorm_tgt=(lambda pose:pose)):
+  return eval_step(args, 'val' + supTag, epoch, val_loader, model,loss,plot_img = plot_img, update=update, logger = logger, unnorm_net=unnorm_net, unnorm_tgt=unnorm_tgt)
 
 def test(args, loader, model, loss,plot_img=False, logger=None):
   return eval_step(args, 'test', 0, loader, model, loss,plot_img = plot_img, logger = logger)
