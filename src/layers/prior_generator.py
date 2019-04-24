@@ -28,6 +28,8 @@ def compute_distances(x, eps=10**(-6)):
     dists = (nn.functional.relu(dists)).pow(0.5)
     if (torch.isnan(dists).sum() > 0):
         print('Distances naN after Relu')
+    if ((dists < 0).sum() > 0):
+        print('NEGATIVE DISTANCES')
     return  dists # B x K x K
 
 

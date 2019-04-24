@@ -60,7 +60,7 @@ class AbstractPriorLoss(nn.Module):
     for i in range(self.J):
             self_keypoint_props[0,i,i,i,i]=1.
             for j in range(self.J):
-                  if i==j or not ((i,j) in EDGES or (j,i) in EDGES):
+                  if i==j: 
 			mask_no_self_connections[0,i,j,:,:]=0.0
 			#self_keypoint_props[0,i,j,i,j] = 1.
 			continue
@@ -88,6 +88,14 @@ class AbstractPriorLoss(nn.Module):
           self.normalizer = factor*self.mask_no_self_connections + self.self_keypoint_props
           self.normalizer = self.normalizer/(self.normalizer.sum(-1).sum(-1).view(1,self.J,self.J,1,1))
           self.normalizer = self.normalizer.to(device)
+          print('PERFORMING NORMALIZER CHECKS')
+          if (torch.isnan(self.normalizer).sum() > 0):
+                print('normalizer has NaNs')
+                return
+          if (abs(torch.abs(self.normalizer.sum(-1).sum(-1).mean()) - 1.0) > 10e-5):
+                print('normalizer not 1') 
+                return
+
     # Init norm values
     if norm=='l2':
           self.norm=l2
@@ -217,13 +225,27 @@ class PriorSMACOFCriterion(AbstractPriorLoss):
 
   def forward_objective(self, prediction, dt=None):
 
-    prediction = prediction.view(prediction.shape[0],self.J,-1)
-
+    prediction = prediction.view(prediction.shape[0], self.J, -1)
+    dt = dt.view(dt.shape[0], self.J, -1)
     dists_predictions = compute_distances(prediction, eps=self.eps)
     dists = compute_distances(dt, eps=self.eps)
     props = compute_proportions(dists, eps=self.eps).view(dists.shape[0],self.J,self.J,self.J,self.J)
+    print('props sum: ', props.sum())
+    print('prior Mean sum: ', self.priorMean.sum())
     gt_dists = self.refiner(dists_predictions,props)*(1.-self.eyeJ)
-
+    print('gt_dist sum: ', gt_dists.sum())
+    if (torch.isnan(dists_predictions).sum() > 0):
+        print('prediction_dists with NAN')
+        return
+    if (torch.isnan(dists).sum() > 0):
+        print('GT distances with NaN')
+        return
+    if (torch.isnan(props).sum() > 0):
+        print('GT props with NaN')
+        return
+    if (torch.isnan(gt_dists).sum() > 0):
+        print('refiner distances with NaN')
+        return
     w = torch.ones_like(gt_dists)
 
     error = self.compute_obj(prediction, gt_dists, w)/self.J
