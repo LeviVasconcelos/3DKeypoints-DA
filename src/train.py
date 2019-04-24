@@ -177,8 +177,8 @@ def step(args, split, epoch, loader, model, optimizer = None, M = None, f = None
                 logger.add_image('Image 3D ' + str(i), (np.asarray(Image.open(filename_3d))).transpose(2,0,1), epoch)
                 #logger.add_image('Image 2D ' + str(i), (np.asarray(Image.open(filename_2d))).transpose(2,0,1), epoch)
 
-    mpjpe_this = accuracy(output.data, target, meta)
-    mpjpe_r_this = accuracy_dis(output.data, target, meta)
+    mpjpe_this = accuracy(output.data, target_var.data, meta)
+    mpjpe_r_this = accuracy_dis(output.data, target_var.data, meta)
     shapeLoss = shapeConsistency(output.data, meta, nViews, M, split = split)
 
     losses.update(loss.item(), input.size(0))
