@@ -62,7 +62,7 @@ class AbstractPriorLoss(nn.Module):
             for j in range(self.J):
                   if i==j or not ((i,j) in EDGES or (j,i) in EDGES):
 			mask_no_self_connections[0,i,j,:,:]=0.0
-			self_keypoint_props[0,i,j,i,j] = 1.
+			#self_keypoint_props[0,i,j,i,j] = 1.
 			continue
                   for l in range(self.J):
                         for m in range(self.J):
@@ -83,8 +83,8 @@ class AbstractPriorLoss(nn.Module):
     else:
           print('Initializing a distances refiner')
           self.refiner=(self.refine_distances)
-          #factor = 1.#self.adjacency.to(device) #torch.exp((torch.abs(Corr))).view(1,self.J,self.J,self.J,self.J)*self.adjacency
-          factor = self.adjacency.to(device)
+          factor = 1.#self.adjacency.to(device) #torch.exp((torch.abs(Corr))).view(1,self.J,self.J,self.J,self.J)*self.adjacency
+          #factor = self.adjacency.to(device)
           self.normalizer = factor*self.mask_no_self_connections + self.self_keypoint_props
           self.normalizer = self.normalizer/(self.normalizer.sum(-1).sum(-1).view(1,self.J,self.J,1,1))
           self.normalizer = self.normalizer.to(device)
@@ -104,7 +104,8 @@ class AbstractPriorLoss(nn.Module):
 
   def refine_distances(self, x,props):
         tiled = x.view(x.shape[0],-1).repeat(1,self.J**2).view(x.shape[0],self.J,self.J,self.J,self.J)
-        return (self.priorMean*tiled*self.normalizer).sum(-1).sum(-1)
+        #return (self.priorMean*tiled*self.normalizer).sum(-1).sum(-1)
+        return (props*tiled*self.normalizer).sum(-1).sum(-1)
 
   def compute_likelihood(self, x):
         return -(torch.pow(x-self.priorMean,2)/(2*self.priorStd.pow(2))).view(x.shape[0],-1).mean(-1)
@@ -218,10 +219,10 @@ class PriorSMACOFCriterion(AbstractPriorLoss):
 
     prediction = prediction.view(prediction.shape[0],self.J,-1)
 
-    #dists = compute_distances(prediction, eps=self.eps)
+    dists_predictions = compute_distances(prediction, eps=self.eps)
     dists = compute_distances(dt, eps=self.eps)
     props = compute_proportions(dists, eps=self.eps).view(dists.shape[0],self.J,self.J,self.J,self.J)
-    gt_dists = self.refiner(dists,props)*(1.-self.eyeJ)
+    gt_dists = self.refiner(dists_predictions,props)*(1.-self.eyeJ)
 
     w = torch.ones_like(gt_dists)
 
