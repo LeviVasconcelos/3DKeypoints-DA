@@ -17,8 +17,7 @@ import os
 '''First loss, create synth gt through 
 the current predictions and the priors'''
 
-EDGES = [(0,1),(0,2),(1,3),(2,3),(2,4),(2,6),(3,5),(3,7),(4,5),(4,8),(5,9)]
-
+EDGES = ref.human_edges 
 
 class AbstractPriorLoss(nn.Module):
   def __init__(self, path, J=10, eps = 10**(-6), device='cuda', norm='l2', distances_refinement=None):
@@ -61,9 +60,13 @@ class AbstractPriorLoss(nn.Module):
     for i in range(self.J):
             self_keypoint_props[0,i,i,i,i]=1.
             for j in range(self.J):
+                  if i==j or not ((i,j) in EDGES or (j,i) in EDGES):
+			mask_no_self_connections[0,i,j,:,:]=0.0
+			self_keypoint_props[0,i,j,i,j] = 1.
+			continue
                   for l in range(self.J):
                         for m in range(self.J):
-                              if i==j or l==m or (i==l and j==m) or (i==m and j==l):
+                              if l==m or (i==l and j==m) or (i==m and j==l):
                                     mask_no_self_connections[0,i,j,l,m]=0.0
 
     self.upper_triangular = self.upper_triangular.view(1,self.J,self.J,self.J,self.J).to(device)
@@ -80,8 +83,8 @@ class AbstractPriorLoss(nn.Module):
     else:
           print('Initializing a distances refiner')
           self.refiner=(self.refine_distances)
-          factor = 1.#self.adjacency.to(device) #torch.exp((torch.abs(Corr))).view(1,self.J,self.J,self.J,self.J)*self.adjacency
-          #factor = factor.to(device)
+          #factor = 1.#self.adjacency.to(device) #torch.exp((torch.abs(Corr))).view(1,self.J,self.J,self.J,self.J)*self.adjacency
+          factor = self.adjacency.to(device)
           self.normalizer = factor*self.mask_no_self_connections + self.self_keypoint_props
           self.normalizer = self.normalizer/(self.normalizer.sum(-1).sum(-1).view(1,self.J,self.J,1,1))
           self.normalizer = self.normalizer.to(device)
@@ -215,9 +218,8 @@ class PriorSMACOFCriterion(AbstractPriorLoss):
 
     prediction = prediction.view(prediction.shape[0],self.J,-1)
 
-    #dists = compute_distances(dt, eps=self.eps)
     #dists = compute_distances(prediction, eps=self.eps)
-    dists = self.distMean.repeat(prediction.shape[0], 1,1)
+    dists = compute_distances(dt, eps=self.eps)
     props = compute_proportions(dists, eps=self.eps).view(dists.shape[0],self.J,self.J,self.J,self.J)
     gt_dists = self.refiner(dists,props)*(1.-self.eyeJ)
 

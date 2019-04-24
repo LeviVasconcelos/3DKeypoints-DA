@@ -159,6 +159,7 @@ def eval_step(args, split, epoch, loader, model, loss, update=True, optimizer = 
 
   model.eval()
   if update:
+    print('Updating BN layers')
     model.train()
   draw_2d = chair_show2D if ref.category == 'Chair' else human_show2D
   draw_3d = chair_show3D if ref.category == 'Chair' else human_show3D
