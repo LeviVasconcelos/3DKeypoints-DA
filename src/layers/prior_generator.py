@@ -11,7 +11,8 @@ import torch.nn as nn
 def compute_distances(x, eps=10**(-6)):
     if len(x.shape)==2:
     	x=x.unsqueeze(0)
-
+    if (torch.isnan(x).sum() > 0):
+        print('X ALREADY WITH NANS TO COMPUTE DISTS')
 
     # Computes the squared norm of X
     x_squared=x.norm(p=2,dim=2).pow(2) # B x K

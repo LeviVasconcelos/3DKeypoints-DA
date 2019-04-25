@@ -227,13 +227,18 @@ class PriorSMACOFCriterion(AbstractPriorLoss):
 
     prediction = prediction.view(prediction.shape[0], self.J, -1)
     dt = dt.view(dt.shape[0], self.J, -1)
+    #print('Predictions distances computation')
     dists_predictions = compute_distances(prediction, eps=self.eps)
+    #print('GT distance computation')
     dists = compute_distances(dt, eps=self.eps)
     props = compute_proportions(dists, eps=self.eps).view(dists.shape[0],self.J,self.J,self.J,self.J)
-    print('props sum: ', props.sum())
-    print('prior Mean sum: ', self.priorMean.sum())
+    #print('props sum: ', props.sum())
+    #print('prior Mean sum: ', self.priorMean.sum())
     gt_dists = self.refiner(dists_predictions,props)*(1.-self.eyeJ)
-    print('gt_dist sum: ', gt_dists.sum())
+    f = open('diff_dists.txt', 'a+')
+    f.write('%lf\n' % torch.abs((gt_dists - dists_predictions)).mean().item())
+    f.close()
+    #print('gt_dist sum: ', gt_dists.sum())
     if (torch.isnan(dists_predictions).sum() > 0):
         print('prediction_dists with NAN')
         return
@@ -270,6 +275,7 @@ class PriorSMACOFCriterion(AbstractPriorLoss):
 
 
   def compute_obj(self,x,delta,w):
+        #print('COMPUTING OBJECTIVE DISTANCE COMPUTATION')
         d = compute_distances(x,self.eps)
         #### Compute first term: \sum_{i<j} w_{ij} \delta_{ij}^2 ####
         delta = delta.view(delta.shape[0],self.J, self.J)
