@@ -112,8 +112,29 @@ class AbstractPriorLoss(nn.Module):
 
   def refine_distances(self, x,props):
         tiled = x.view(x.shape[0],-1).repeat(1,self.J**2).view(x.shape[0],self.J,self.J,self.J,self.J)
-        #return (self.priorMean*tiled*self.normalizer).sum(-1).sum(-1)
-        return (props*tiled*self.normalizer).sum(-1).sum(-1)
+        #return (props*tiled*self.normalizer).sum(-1).sum(-1)
+        gt_dists = (props*tiled*self.normalizer).sum(-1).sum(-1)
+        if (torch.abs(gt_dists) > 50.).sum() > 0:
+            tiled_max = torch.max(tiled)
+            props_max = torch.max(props)
+            gt_dists_max = torch.max(gt_dists)
+            normalizer_max = torch.max(self.normalizer)
+            print('tiled max: ',tiled_max)
+            print('props max: ',props_max)
+            print('gt_dist max: ',gt_dists_max)
+            print('normalizer max: ',normalizer_max)
+            idx = torch.argmax(gt_dists).item()
+           
+            print('props argmax: ', props.view(-1)[idx])
+            print('tiled argmax: ', tiled.view(-1)[idx])
+            print('normalizer argmax_idx', self.normalizer.view(-1)[idx])
+            print('gt_dists too high:')
+            if (torch.abs(x) > 5.).sum() > 0:
+                print('predictions weird')
+            if (torch.abs(props) > 5.).sum() > 0:
+                print('props weird')
+                
+        return gt_dists
 
   def compute_likelihood(self, x):
         return -(torch.pow(x-self.priorMean,2)/(2*self.priorStd.pow(2))).view(x.shape[0],-1).mean(-1)
@@ -234,28 +255,35 @@ class PriorSMACOFCriterion(AbstractPriorLoss):
     props = compute_proportions(dists, eps=self.eps).view(dists.shape[0],self.J,self.J,self.J,self.J)
     #print('props sum: ', props.sum())
     #print('prior Mean sum: ', self.priorMean.sum())
-    gt_dists = self.refiner(dists_predictions,props)*(1.-self.eyeJ)
-    f = open('diff_dists.txt', 'a+')
-    f.write('%lf\n' % torch.abs((gt_dists - dists_predictions)).mean().item())
-    f.close()
-    #print('gt_dist sum: ', gt_dists.sum())
-    if (torch.isnan(dists_predictions).sum() > 0):
-        print('prediction_dists with NAN')
-        return
-    if (torch.isnan(dists).sum() > 0):
-        print('GT distances with NaN')
-        return
-    if (torch.isnan(props).sum() > 0):
-        print('GT props with NaN')
-        return
-    if (torch.isnan(gt_dists).sum() > 0):
-        print('refiner distances with NaN')
-        return
+    gt_dists = (self.refiner(dists_predictions,props)*(1.-self.eyeJ))
+    #f = open('diff_dists.txt', 'a+')
+    #f.write('%lf\n' % torch.abs((gt_dists - dists_predictions)).mean().item())
+    #f.close()
+    ##print('gt_dist sum: ', gt_dists.sum())
+    #if (torch.isnan(dists_predictions).sum() > 0):
+    #    print('prediction_dists with NAN')
+    #    return
+    #if (torch.isnan(dists).sum() > 0):
+    #    print('GT distances with NaN')
+    #    return
+    #if (torch.isnan(props).sum() > 0):
+    #    print('GT props with NaN')
+    #    return
+    #if (torch.isnan(gt_dists).sum() > 0):
+    #    print('refiner distances with NaN')
+    #    return
     w = torch.ones_like(gt_dists)
-
+    #print()
+    #print()
+    #if (gt_dists[0].mean()>10):
+    #	print(dists[0],gt_dists[0],dists_predictions[0])
+    # 	print(dt[0],prediction[0])
+    #	print(props[0])
+    # 	print()
+    #	exit(1)
     error = self.compute_obj(prediction, gt_dists, w)/self.J
-
-    return error
+    #mask_error = (gt_dists.mean(-1).mean(-1)<2.0).float()
+    return error#*torch.exp(-error)#mask_error
 
 
 

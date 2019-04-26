@@ -46,12 +46,17 @@ def replicate_mask(x): # x must be of dimension BxK
 
 def compute_proportions(x,eps=10**(-6)): # x has dimensions B x K x K
     x = x.view(x.shape[0],-1) # B x K^2
-    numerator = x.unsqueeze(2) # B x K^2 x 1
+    numerator = (x.unsqueeze(2)) # B x K^2 x 1
     denominator = 1./(x.unsqueeze(1)+eps) # B x 1 x K^2
     mm = torch.bmm(numerator,denominator) # B x K^2 x K^2
     if (torch.isnan(mm).sum() > 0):
        print('NaN computing proportions...')
     assert(torch.isnan(mm).sum() < 1)
+    #if (torch.abs(mm) > 100).sum() > 0:
+    #     print('dists shape: ', x.shape) 
+    #     print('From compute_props: props > 100')
+    #     if (torch.abs(x) > 10).sum() > 0:
+    #          print('FromProps: x weird ################')
     return mm
 
 def compute_masked_proportions(x,mask,eps=10**(-6)): # x has dimensions B x K x K
