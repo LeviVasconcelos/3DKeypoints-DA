@@ -126,7 +126,7 @@ def train_step(args, split, epoch, loader, model, loss, update_bn=True, logger=N
 
   idx_0 = len(loader)*epoch
 
-  
+  loss.epoch = epoch
   for i, (input, target, _) in enumerate(loader):
     input_var = input.to(device)
     target_var = target.to(device)
@@ -136,7 +136,7 @@ def train_step(args, split, epoch, loader, model, loss, update_bn=True, logger=N
         print('OUTPUT WITH NANS DURING TRAINING %d' % i)
         return
     cr_loss = (cr_loss).mean()
-    print(cr_loss.item())
+    #print(cr_loss.item())
 
     #rotation_loss = compute_rotation_loss(old_output.view(input.shape[0],10,3), output.view(input.shape[0],10,3), w)
 

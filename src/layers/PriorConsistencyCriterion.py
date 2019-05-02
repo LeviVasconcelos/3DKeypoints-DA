@@ -68,7 +68,7 @@ class AbstractPriorLoss(nn.Module):
                                     mask_no_self_connections[0,i,j,l,m]=0.0
 
     self.upper_triangular = self.upper_triangular.view(1,self.J,self.J,self.J,self.J).to(device)
-    self.adjacency = adjacency
+    self.adjacency = adjacency.to('cuda')
     self.mask_no_self_connections = mask_no_self_connections.to(device)
     self.self_keypoint_props = self_keypoint_props.to(device)
 
@@ -83,7 +83,7 @@ class AbstractPriorLoss(nn.Module):
           self.refiner=(self.refine_distances)
           factor = 1.#self.adjacency.to(device) #torch.exp((torch.abs(Corr))).view(1,self.J,self.J,self.J,self.J)*self.adjacency
           #factor = self.adjacency.to(device)
-          self.normalizer = factor*self.mask_no_self_connections + self.self_keypoint_props
+          self.normalizer = factor*self.mask_no_self_connectionsself + self.self_keypoint_props
           self.normalizer = self.normalizer/(self.normalizer.sum(-1).sum(-1).view(1,self.J,self.J,1,1))
           self.normalizer = self.normalizer.to(device)
           print('PERFORMING NORMALIZER CHECKS')
@@ -109,35 +109,34 @@ class AbstractPriorLoss(nn.Module):
         return x
 
   def refine_distances(self, x,props):
-        print('x_shape: ', x.shape)
-        print('pros_shape: ', props.shape)
-        print('normalizer shape:', self.normalizer.shape)
-        tiled = x.view(x.shape[0],-1).repeat(1,self.J**2).view(x.shape[0],self.J,self.J,self.J,self.J).detach()
+        #print('x_shape: ', x.shape)
+        #print('pros_shape: ', props.shape)
+        #print('normalizer shape:', self.normalizer.shape)
+        tiled = x.view(x.shape[0],-1).repeat(1,self.J**2).view(x.shape[0],self.J,self.J,self.J,self.J)
         #return (props*tiled*self.normalizer).sum(-1).sum(-1)
-        before_reconstruction = (props*tiled*self.normalizer)
+        #before_reconstruction = (props*tiled*self.normalizer)
         gt_dists = (props*tiled*self.normalizer).sum(-1).sum(-1)
-        print('gt_shape:', gt_dists.shape)
+        #print(torch.abs(gt_dists - x).sum())
+        #print('gt_shape:', gt_dists.shape)
         if (torch.abs(gt_dists) > 500.).sum() > 0:
             tiled_max = torch.max(tiled)
-            props_max = torch.max(props)
             gt_dists_max = torch.max(gt_dists)
             normalizer_max = torch.max(self.normalizer)
             props_max_idx = torch.argmax(props).item() 
             print('norm_weight of props_max:', self.normalizer.view(-1)[props_max_idx % self.normalizer.numel()])
             print('tiled max: ',tiled_max)
-            print('props max: ',props_max)
             print('gt_dist max: ',gt_dists_max)
             print('normalizer max: ',normalizer_max)
             idx = torch.argmax(gt_dists).item()
             gt_dist_idx = get_shape_index(idx, gt_dists.shape)
-            np.save('props_of_max.npy', props[gt_dist_idx].cpu().numpy())
-            np.save('tiled_of_max.npy', tiled[gt_dist_idx].cpu().numpy())
-            np.save('norm_of_max.npy', self.normalizer[0][gt_dist_idx[1:]].cpu().numpy())
-            print('idx: ', gt_dist_idx)
+            #np.save('props_of_max.npy', props[gt_dist_idx].cpu().numpy())
+            #np.save('tiled_of_max.npy', tiled[gt_dist_idx].cpu().numpy())
+            #np.save('norm_of_max.npy', self.normalizer[0][gt_dist_idx[1:]].cpu().numpy())
+            #print('idx: ', gt_dist_idx)
             print('gt_dist_max from idx: ', gt_dists[gt_dist_idx])
             print('max before reconstruction: ', torch.max(before_reconstruction[gt_dist_idx])) # 17 x 17
             br_max_idx = get_shape_index(torch.argmax(before_reconstruction[gt_dist_idx]), before_reconstruction[gt_dist_idx].shape)
-            print('max br from idx: ', before_reconstruction[gt_dist_idx][br_max_idx])
+            #print('max br from idx: ', before_reconstruction[gt_dist_idx][br_max_idx])
             print('proportions of max br: ', props[gt_dist_idx][br_max_idx]) 
             print('tiled of max br: ', tiled[gt_dist_idx][br_max_idx])
             print('normalizer of max br: ', self.normalizer[0][gt_dist_idx[1:]][br_max_idx])
@@ -145,9 +144,6 @@ class AbstractPriorLoss(nn.Module):
             print('gt_dists too high:')
             if (torch.abs(x) > 5.).sum() > 0:
                 print('predictions weird')
-            if (torch.abs(props) > 5.).sum() > 0:
-                print('props weird')
-                
         return gt_dists
 
   def compute_likelihood(self, x):
@@ -208,7 +204,7 @@ class PriorRegressionCriterion(AbstractPriorLoss):
 ##############################
 
 class PriorSMACOFCriterion(AbstractPriorLoss):
-  def __init__(self, path, J=10, eps = 10**(-6), device='cuda', norm='l2', distances_refinement=None, iterate=False, rotation_weight=0, scale_weight=0):
+  def __init__(self, path, J=10, eps = 10**(-6), device='cuda', norm='l2', distances_refinement=None, iterate=False, rotation_weight=0, scale_weight=0, debug=0):
     super(PriorSMACOFCriterion, self).__init__(path, J, eps, device, norm, distances_refinement)
 
     self.eyeK = torch.eye(3).unsqueeze(0).float()
@@ -228,8 +224,9 @@ class PriorSMACOFCriterion(AbstractPriorLoss):
     elif iterate:
           self.forward = self.forward_iterative
     else:
-          self.forward = self.forward_objective
-
+          self.forward = self.forward_objective if (debug == 0) else self.forward_debug
+    self.epoch = 0
+    self.last_epoch = None
 
   def forward_regularized(self, prediction, dt=None):
 
@@ -257,9 +254,23 @@ class PriorSMACOFCriterion(AbstractPriorLoss):
 
     return regression_term + self.scale_weight * scale_loss + self.rotation_weight * rotation_loss
 
+  def forward_debug(self, prediction, dt=None):
+    if self.last_epoch != self.epoch:
+        prediction = prediction.view(prediction.shape[0], self.J, -1)
+        dt = dt.view(dt.shape[0], self.J, -1)
+        dists_predictions = compute_distances(prediction, eps=self.eps)
+        gt_dists = compute_distances(dt, eps=self.eps)
+        gt_props, _ = compute_proportions(gt_dists, eps=self.eps)
+        gt_props = gt_props.view(gt_dists.shape[0],self.J,self.J,self.J,self.J)
+        reconstructed_dists = (self.refiner(dists_predictions, gt_props)*(1.-self.eyeJ))
+        reconstructed_kps = self.iterate(prediction, reconstructed_dists, torch.ones_like(gt_dists))
+        np.save('reconstructed_%d' % (self.epoch), reconstructed_kps.detach().cpu().numpy())
+        np.save('predictions_%d' % (self.epoch), prediction.detach().cpu().numpy())
+        np.save('ground_truth_%d' % (self.epoch), dt.detach().cpu().numpy())
+        self.last_epoch = self.epoch
+    return self.forward_objective(prediction, dt)
 
   def forward_objective(self, prediction, dt=None):
-
     prediction = prediction.view(prediction.shape[0], self.J, -1)
     dt = dt.view(dt.shape[0], self.J, -1)
     #print('Predictions distances computation')
@@ -274,7 +285,7 @@ class PriorSMACOFCriterion(AbstractPriorLoss):
        print('***** FILE SAVED ****')
     #print('props sum: ', props.sum())
     #print('prior Mean sum: ', self.priorMean.sum())
-    gt_dists = (self.refiner(dists_predictions,props)*(1.-self.eyeJ)).detach()
+    gt_dists = (self.refiner(dists_predictions,props)*(1.-self.eyeJ))
     #f = open('diff_dists.txt', 'a+')
     #f.write('%lf\n' % torch.abs((gt_dists - dists_predictions)).mean().item())
     #f.close()
@@ -300,7 +311,7 @@ class PriorSMACOFCriterion(AbstractPriorLoss):
     #	print(props[0])
     # 	print()
     #	exit(1)
-    error = self.compute_obj(prediction, gt_dists, w)/self.J
+    error = self.compute_obj(prediction, dists, w)/self.J
     #mask_error = (gt_dists.mean(-1).mean(-1)<2.0).float()
     return error#*torch.exp(-error)#mask_error
 

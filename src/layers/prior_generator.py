@@ -26,12 +26,13 @@ def compute_distances(x, eps=10**(-6)):
     dists = x_squared_left + x_squared_right - 2*xxT  +eps
     if (torch.isnan(dists).sum() > 0):
         print('Distances NaN')
-    if ((torch.abs(dists[dists < 0]) > 0.05).sum() > 0):
-        print('NEGATIVE DISTANCES')
-        print('negative distances: ', dists[dists < 0])
+    #if ((torch.abs(dists[dists < 0]) > 0.05).sum() > 0):
+    #    print('NEGATIVE DISTANCES')
+    #    print('negative distances: ', dists[dists < 0])
     dists = (nn.functional.relu(dists)).pow(0.5)
-    if (torch.isnan(dists).sum() > 0):
-        print('Distances naN after Relu')
+    dists[dists > ref.distance_threshold] = ref.distance_threshold
+    #if (torch.isnan(dists).sum() > 0):
+    #    print('Distances naN after Relu')
     return  dists # B x K x K
 
 
