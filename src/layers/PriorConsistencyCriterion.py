@@ -5,7 +5,7 @@ from torch.autograd import Function
 import numpy as np
 from utils.horn87 import horn87, RotMat
 import ref
-from prior_generator import compute_distances, compute_proportions, replicate_mask 
+from prior_generator import compute_distances, compute_proportions, replicate_mask, get_shape_index
 from scipy.misc import toimage
 from torchviz import make_dot
 import math
@@ -33,8 +33,6 @@ class AbstractPriorLoss(nn.Module):
     self.priorStd = Std.view(1,self.J, self.J, self.J,self.J)
     self.distMean = DMean.view(1,self.J, self.J)
     self.distStd = DStd.view(1,self.J, self.J)
-
-
 
     # Init possibly useful matrices
     self.upper_triangular = torch.FloatTensor(1,self.J**2,self.J**2).zero_() 
@@ -111,23 +109,39 @@ class AbstractPriorLoss(nn.Module):
         return x
 
   def refine_distances(self, x,props):
-        tiled = x.view(x.shape[0],-1).repeat(1,self.J**2).view(x.shape[0],self.J,self.J,self.J,self.J)
+        print('x_shape: ', x.shape)
+        print('pros_shape: ', props.shape)
+        print('normalizer shape:', self.normalizer.shape)
+        tiled = x.view(x.shape[0],-1).repeat(1,self.J**2).view(x.shape[0],self.J,self.J,self.J,self.J).detach()
         #return (props*tiled*self.normalizer).sum(-1).sum(-1)
+        before_reconstruction = (props*tiled*self.normalizer)
         gt_dists = (props*tiled*self.normalizer).sum(-1).sum(-1)
-        if (torch.abs(gt_dists) > 50.).sum() > 0:
+        print('gt_shape:', gt_dists.shape)
+        if (torch.abs(gt_dists) > 500.).sum() > 0:
             tiled_max = torch.max(tiled)
             props_max = torch.max(props)
             gt_dists_max = torch.max(gt_dists)
             normalizer_max = torch.max(self.normalizer)
+            props_max_idx = torch.argmax(props).item() 
+            print('norm_weight of props_max:', self.normalizer.view(-1)[props_max_idx % self.normalizer.numel()])
             print('tiled max: ',tiled_max)
             print('props max: ',props_max)
             print('gt_dist max: ',gt_dists_max)
             print('normalizer max: ',normalizer_max)
             idx = torch.argmax(gt_dists).item()
-           
-            print('props argmax: ', props.view(-1)[idx])
-            print('tiled argmax: ', tiled.view(-1)[idx])
-            print('normalizer argmax_idx', self.normalizer.view(-1)[idx])
+            gt_dist_idx = get_shape_index(idx, gt_dists.shape)
+            np.save('props_of_max.npy', props[gt_dist_idx].cpu().numpy())
+            np.save('tiled_of_max.npy', tiled[gt_dist_idx].cpu().numpy())
+            np.save('norm_of_max.npy', self.normalizer[0][gt_dist_idx[1:]].cpu().numpy())
+            print('idx: ', gt_dist_idx)
+            print('gt_dist_max from idx: ', gt_dists[gt_dist_idx])
+            print('max before reconstruction: ', torch.max(before_reconstruction[gt_dist_idx])) # 17 x 17
+            br_max_idx = get_shape_index(torch.argmax(before_reconstruction[gt_dist_idx]), before_reconstruction[gt_dist_idx].shape)
+            print('max br from idx: ', before_reconstruction[gt_dist_idx][br_max_idx])
+            print('proportions of max br: ', props[gt_dist_idx][br_max_idx]) 
+            print('tiled of max br: ', tiled[gt_dist_idx][br_max_idx])
+            print('normalizer of max br: ', self.normalizer[0][gt_dist_idx[1:]][br_max_idx])
+            print('product: ', props[gt_dist_idx][br_max_idx]*tiled[gt_dist_idx][br_max_idx]* self.normalizer[0][gt_dist_idx[1:]][br_max_idx])
             print('gt_dists too high:')
             if (torch.abs(x) > 5.).sum() > 0:
                 print('predictions weird')
@@ -252,10 +266,15 @@ class PriorSMACOFCriterion(AbstractPriorLoss):
     dists_predictions = compute_distances(prediction, eps=self.eps)
     #print('GT distance computation')
     dists = compute_distances(dt, eps=self.eps)
-    props = compute_proportions(dists, eps=self.eps).view(dists.shape[0],self.J,self.J,self.J,self.J)
+    props, idx = compute_proportions(dists, eps=self.eps)
+    props = props.view(dists.shape[0],self.J,self.J,self.J,self.J)
+    if idx is not None:
+       issue_dt = dt[idx[0]].cpu().numpy()
+       np.save('issue_batch_%d.npy' % (idx[0]), issue_dt)
+       print('***** FILE SAVED ****')
     #print('props sum: ', props.sum())
     #print('prior Mean sum: ', self.priorMean.sum())
-    gt_dists = (self.refiner(dists_predictions,props)*(1.-self.eyeJ))
+    gt_dists = (self.refiner(dists_predictions,props)*(1.-self.eyeJ)).detach()
     #f = open('diff_dists.txt', 'a+')
     #f.write('%lf\n' % torch.abs((gt_dists - dists_predictions)).mean().item())
     #f.close()
