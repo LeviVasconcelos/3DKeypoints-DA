@@ -18,7 +18,7 @@ totalViewsModelNet = 18
 totalViewsShapeNet = 18
 #nValViews = 18
 nValViews = 4 
-
+distance_threshold = 10
 #J = 10
 #J = 32
 J = 15 

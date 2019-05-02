@@ -103,7 +103,7 @@ def main():
             elif args.distsOnly:
                   prior_loss = PriorRegressionCriterion(args.propsFile, norm = args.lossNorm, distances_refinement=args.distsRefiner, obj='dists')
             else:
-                  prior_loss = PriorSMACOFCriterion(args.propsFile, norm = args.lossNorm, distances_refinement=args.distsRefiner, iterate=False, J=ref.J, rotation_weight=0, scale_weight=0)
+                  prior_loss = PriorSMACOFCriterion(args.propsFile, norm = args.lossNorm, distances_refinement=args.distsRefiner, iterate=False, J=ref.J, rotation_weight=0, scale_weight=0, debug=args.DEBUG)
 
       if args.test:
             if not args.shapeConsistency:
