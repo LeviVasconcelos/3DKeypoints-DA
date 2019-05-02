@@ -55,7 +55,7 @@ class Humans36mDataset(data.Dataset):
             self.rgb = rgb
             self.nViews = nViews if self.rgb else 1
             self.split = split
-            self.kp_to_use = np.asarray([0, 1, 2, 3, 6, 7, 8, 13, 15, 16, 17, 18, 19, 24, 25, 26, 27])
+            self.kp_to_use = np.asarray([0, 1, 2, 3, 6, 7, 8, 13, 14, 17, 18, 19, 25, 26, 27])
             self.K = len(self.kp_to_use)
             self.meta_val = meta_val
             #self.kTrainSplit = 3
@@ -79,7 +79,6 @@ class Humans36mDataset(data.Dataset):
             self._build_access_index()
             self._build_meta()
             print('**Dataset Loaded: split [%s], len[%d], views[%d], rgb[%s]' % (self.split, self.len, self.nViews, 'True' if self.rgb else 'False'))
-            
       
       def _build_meta(self):
             self.meta = np.zeros((self.len, self.kMaxViews, ref.metaDim))
@@ -105,7 +104,7 @@ class Humans36mDataset(data.Dataset):
             # Fill in annotations
             annot_file = os.path.join(folder, self.kAnnotationsFilename)
             with h5py.File(annot_file, 'r') as file:
-                  frames = file['frame'].value
+                  frames = file['frame']
                   unique_frames = np.unique(frames)
                   pose3d_norm = file['pose/3d-norm'].value
                   bbox = file['bbox'].value

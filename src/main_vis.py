@@ -83,7 +83,7 @@ def main():
       if args.targetDataset in kHumansDataset or args.sourceDataset in kHumansDataset:
             assert(ref.nViews <= 4)
             assert(args.nViews <= 4)
-            assert(ref.J == 17)
+            assert(ref.J == 15)
             assert(ref.category == 'Human')
             assert(ref.nValViews <= 4)
 
