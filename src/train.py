@@ -51,7 +51,7 @@ def source_only_train_step(args, epoch, loader, model, optimizer = None, device 
       return np.array(regression_loss).mean()
 
 
-def source_only_eval(args, epoch, loader, model, plot_img = False, logger = None, device='cuda', statistics=None, net_statistics=None):
+def source_only_eval(args, ds_split, epoch, loader, model, plot_img = False, logger = None, device='cuda', statistics=None, net_statistics=None):
 
       regr_loss = []
       accuracy_this = []
@@ -105,15 +105,22 @@ def source_only_eval(args, epoch, loader, model, plot_img = False, logger = None
                         logger.add_image('Image 3D ' + str(i), (np.asarray(Image.open(filename_3d))).transpose(2,0,1), epoch)
                         plt.close()
                         #logger.add_image('Image 2D ' + str(i), (np.asarray(Image.open(filename_2d))).transpose(2,0,1), epoch)
-                      
-      return np.array(regr_loss).mean(), np.array(accuracy_this).mean(), np.array(accuracy_shape).mean()
+      regr_loss_mean = np.array(regr_loss).mean()
+      accuracy_mean = np.array(accuracy_this).mean()
+      accuracy_shape_mean =  np.array(accuracy_shape).mean()
+      if 'val' in ds_split:
+          tag = ds_split.split('/')[-1]   
+          logger.add_scalar('val/' + tag + '-accuracy', accuracy_mean, epoch)
+          logger.add_scalar('val/' + tag + '-regr-loss', regr_loss_mean, epoch)
+          logger.add_scalar('val/' + tag + '-unsup-loss', accuracy_shape_mean, epoch)
+                
+      return regr_loss_mean, accuracy_mean, accuracy_shape_mean
 
-
-def step(args, split, epoch, loader, model, optimizer = None, M = None, f = None, tag = None, dial=False, nViews=ref.nViews, visualize=False, logger=None, unnorm_net=(lambda pose:pose), unnorm_tgt=(lambda pose:pose)):
+def step(args, ds_split, epoch, loader, model, optimizer = None, M = None, f = None, tag = None, dial=False, nViews=ref.nViews, visualize=False, logger=None, unnorm_net=(lambda pose:pose), unnorm_tgt=(lambda pose:pose)):
   losses, mpjpe, mpjpe_r = AverageMeter(), AverageMeter(), AverageMeter()
   viewLosses, shapeLosses, supLosses = AverageMeter(), AverageMeter(), AverageMeter()
   
-  if split == 'train':
+  if ds_split == 'train':
     model.train()
   else:
     model.eval()
@@ -137,7 +144,7 @@ def step(args, split, epoch, loader, model, optimizer = None, M = None, f = None
     output = unnorm_net(output.view(input.shape[0], ref.J, 3)).view(input.shape[0], -1)
     loss = ShapeConsistencyCriterion(nViews, supWeight = 1, unSupWeight = args.shapeWeight, M = M)(output.cpu(), target_var, meta)
 
-    '''if split == 'test':
+    '''if ds_split == 'test':
       for j in range(input.numpy().shape[0]):
         img = (input.numpy()[j] * 255).transpose(1, 2, 0).astype(np.uint8)
         cv2.imwrite('{}/img_{}/{}.png'.format(args.save_path, tag, i * input.numpy().shape[0] + j), img)
@@ -179,19 +186,26 @@ def step(args, split, epoch, loader, model, optimizer = None, M = None, f = None
 
     mpjpe_this = accuracy(output.data, target_var.data, meta)
     mpjpe_r_this = accuracy_dis(output.data, target_var.data, meta)
-    shapeLoss = shapeConsistency(output.data, meta, nViews, M, split = split)
+    shapeLoss = shapeConsistency(output.data, meta, nViews, M, split = ds_split)
 
     losses.update(loss.item(), input.size(0))
     shapeLosses.update(shapeLoss, input.size(0))
     mpjpe.update(mpjpe_this, input.size(0))
     mpjpe_r.update(mpjpe_r_this, input.size(0))
     
-    if split == 'train':
+    if ds_split == 'train':
       optimizer.zero_grad()
       loss.backward()
       optimizer.step()
     
-    Bar.suffix = '{split:10}: [{0:2}][{1:3}/{2:3}] | Total: {total:} | ETA: {eta:} | Loss {loss.avg:.6f} | shapeLoss {shapeLoss.avg:.6f} | AE {mpjpe.avg:.6f} | ShapeDis {mpjpe_r.avg:.6f}'.format(epoch, i, len(loader), total=bar.elapsed_td, eta=bar.eta_td, loss=losses, mpjpe=mpjpe, split = split, shapeLoss = shapeLosses, mpjpe_r = mpjpe_r)
+    if 'val' in ds_split:
+      tag = ds_split.split('/')[-1]
+      logger.add_scalar('val/' + tag + '-accuracy', mpjpe_this, epoch)
+      logger.add_scalar('val/' + tag + '-regr-loss', losses.avg, epoch)
+      logger.add_scalar('val/' + tag + '-unsup-loss', mpjpe_r_this, epoch)
+ 
+    
+    Bar.suffix = '{split:10}: [{0:2}][{1:3}/{2:3}] | Total: {total:} | ETA: {eta:} | Loss {loss.avg:.6f} | shapeLoss {shapeLoss.avg:.6f} | AE {mpjpe.avg:.6f} | ShapeDis {mpjpe_r.avg:.6f}'.format(epoch, i, len(loader), total=bar.elapsed_td, eta=bar.eta_td, loss=losses, mpjpe=mpjpe, split = ds_split, shapeLoss = shapeLosses, mpjpe_r = mpjpe_r)
     bar.next()
       
   bar.finish()
@@ -294,9 +308,8 @@ def dial_step(args, split, epoch, (loader, len_loader), model, optimizer = None,
 def train_source_only(args, train_loader, model, optimizer, epoch):
       return source_only_train_step(args, epoch, train_loader, model, optimizer, device = 'cuda')
 
-def eval_source_only(args, val_loader, model, epoch, plot_img=False, logger=None, statistics=None, net_statistics=None):
-      #(args, epoch, loader, model, plot_img = False, logger = None, device='cuda'):
-      return source_only_eval(args, epoch, val_loader, model, plot_img = plot_img, logger = logger, statistics=statistics, net_statistics=net_statistics)
+def eval_source_only(args, ds_split, val_loader, model, epoch, plot_img=False, logger=None, statistics=None, net_statistics=None):
+      return source_only_eval(args, ds_split, epoch, val_loader, model, plot_img = plot_img, logger = logger, statistics=statistics, net_statistics=net_statistics)
 
 def train(args, train_loader, model, optimizer, M, epoch, dial=False, nViews=ref.nViews, unnorm_net=(lambda pose:pose), unnorm_tgt=(lambda pose:pose)):
   return step(args, 'train', epoch, train_loader, model, optimizer, M = M, dial=dial, unnorm_net=unnorm_net, unnorm_tgt=unnorm_tgt)

@@ -152,7 +152,7 @@ def train_step(args, split, epoch, loader, model, loss, update_bn=True, logger=N
   return np.array(prior_loss).mean()
 
 
-def eval_step(args, split, epoch, loader, model, loss, update=True, optimizer = None, M = None, f = None, nViews=ref.nViews, plot_img = False, logger = None,device='cuda', unnorm_net=(lambda pose:pose), unnorm_tgt=(lambda pose:pose)):
+def eval_step(args, ds_split, epoch, loader, model, loss, update=True, optimizer = None, M = None, f = None, nViews=ref.nViews, plot_img = False, logger = None,device='cuda', unnorm_net=(lambda pose:pose), unnorm_tgt=(lambda pose:pose)):
   prior_loss = []
   regr_loss = []
   accuracy_this = []
@@ -203,8 +203,22 @@ def eval_step(args, split, epoch, loader, model, loss, update=True, optimizer = 
           plt.close()
 
     prior_loss.append(cr_loss.item())
+  
+ 
+  accuracy_mean = np.array(accuracy_this).mean()
+  accuracy_shape_mean = np.array(accuracy_shape).mean()
+  regr_loss_mean =  np.array(regr_loss).mean()
+  prior_loss_mean =  np.array(prior_loss).mean()
 
-  return np.array(accuracy_this).mean(),np.array(accuracy_shape).mean(), np.array(regr_loss).mean(), np.array(prior_loss).mean()
+  if 'val' in ds_split:
+          #valSource_mpjpe, valSource_shape,  valSource_loss, valSource_unSuploss 
+          tag = ds_split.split('/')[-1]
+          logger.add_scalar('val/' + tag + '-accuracy', accuracy_mean, epoch)
+          logger.add_scalar('val/' + tag + '-accuracy-shape', accuracy_shape_mean, epoch)
+          logger.add_scalar('val/' + tag + '-regr-loss', regr_loss_mean, epoch)
+          logger.add_scalar('val/' + tag + '-prior-loss', prior_loss_mean, epoch)
+ 
+  return accuracy_mean, accuracy_shape_mean, regr_loss_mean, prior_loss_mean
 
 def train_priors(args, train_loader, model, loss, update_bn, logger, optimizer, epoch, nViews=ref.nViews, threshold = 0.9, unnorm_net=(lambda pose:pose), unnorm_tgt=(lambda pose:pose)):
   return train_step(args, 'train', epoch, train_loader[0], model, loss, update_bn, logger, optimizer, threshold=threshold, unnorm_net=(lambda pose:pose), unnorm_tgt=(lambda pose:pose))

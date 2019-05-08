@@ -99,11 +99,19 @@ def main():
       
       if not args.shapeConsistency and not args.sourceOnly and not args.test:
             if args.propsOnly:
-                  prior_loss = PriorRegressionCriterion(args.propsFile, norm = args.lossNorm, distances_refinement=args.distsRefiner, obj='props')
+                  prior_loss = PriorRegressionCriterion(args.propsFile, norm = args.lossNorm, 
+                                                         distances_refinement=args.distsRefiner, 
+                                                         obj='props')
             elif args.distsOnly:
-                  prior_loss = PriorRegressionCriterion(args.propsFile, norm = args.lossNorm, distances_refinement=args.distsRefiner, obj='dists')
+                  prior_loss = PriorRegressionCriterion(args.propsFile, norm = args.lossNorm, 
+                                                         distances_refinement=args.distsRefiner, 
+                                                         obj='dists')
             else:
-                  prior_loss = PriorSMACOFCriterion(args.propsFile, norm = args.lossNorm, distances_refinement=args.distsRefiner, iterate=False, J=ref.J, rotation_weight=0, scale_weight=0, debug=args.DEBUG, debug_folder=args.debug_folder)
+                  prior_loss = PriorSMACOFCriterion(args.propsFile, norm = args.lossNorm, 
+                                                     distances_refinement=args.distsRefiner, 
+                                                     iterate=False, J=ref.J, rotation_weight=0, 
+                                                     scale_weight=0, debug=args.DEBUG,  
+                                                     debug_folder=args.debug_folder)
 
       if args.test:
             if not args.shapeConsistency:
@@ -124,44 +132,48 @@ def main():
             #np.save(args.propsFile+'-props.npy', targetProps)
             return
 
-      train_dataset = Fusion(SourceDataset, TargetDataset, nViews = args.nViews, targetRatio = args.targetRatio, totalTargetIm = args.totalTargetIm)
+      train_dataset = Fusion(SourceDataset, TargetDataset, nViews = args.nViews, 
+                              targetRatio = args.targetRatio, totalTargetIm = args.totalTargetIm)
       trainTarget_dataset = train_dataset.targetDataset
 
-      fusion_loader = torch.utils.data.DataLoader(
-              train_dataset, batch_size=args.batchSize, shuffle=not args.test,
-              num_workers=args.workers if not args.test else 1, pin_memory=False, collate_fn=collate_fn_cat)
-      trainTarget_loader = torch.utils.data.DataLoader(
-              trainTarget_dataset, batch_size=args.batchSize, shuffle=True,
-              num_workers=args.workers if not args.test else 1, pin_memory=True, collate_fn=collate_fn_cat)
+      fusion_loader = torch.utils.data.DataLoader(train_dataset, batch_size=args.batchSize, 
+                                                   shuffle=not args.test, 
+                                                   num_workers=args.workers if not args.test else 1, 
+                                                   pin_memory=False, collate_fn=collate_fn_cat)
+      trainTarget_loader = torch.utils.data.DataLoader(trainTarget_dataset, batch_size=args.batchSize, 
+                                                       shuffle=True,
+                                                       num_workers=args.workers if not args.test else 1,
+                                                       pin_memory=True, collate_fn=collate_fn_cat)
 
       trainSource_dataset = train_dataset.sourceDataset
-      trainSource_loader = torch.utils.data.DataLoader(
-          trainSource_dataset, batch_size=args.batchSize, shuffle=True,
-          num_workers=args.workers if not args.test else 1, pin_memory=True, collate_fn=collate_fn_cat)
-      if not args.shapeConsistency and not args.sourceOnly:
-            valSource_mpjpe, valSource_shape,  valSource_loss, valSource_unSuploss = validate_priors(args, 'Source', valSource_loader, model, prior_loss, 0,unnorm_net=trainSource_dataset._unnormalize_pose, unnorm_tgt=valTarget_dataset._unnormalize_pose)
-            valTarget_mpjpe, valTarget_shape, valTarget_loss, valTarget_unSuploss = validate_priors(args, 'Target', valTarget_loader, model, prior_loss, 0, plot_img=True, logger=logger,unnorm_net=trainSource_dataset._unnormalize_pose, unnorm_tgt=valTarget_dataset._unnormalize_pose)
-            logger.add_scalar('val/source-accuracy', valSource_mpjpe, 0)
-            logger.add_scalar('val/target-accuracy', valTarget_mpjpe, 0)
-            
-            logger.add_scalar('val/target-accuracy', valTarget_mpjpe, 0)
-            logger.add_scalar('val/target-accuracy-shape', valTarget_shape, 0)
-            
-            logger.add_scalar('val/source-regr-loss', valSource_loss, 0)
-            logger.add_scalar('val/target-regr-loss', valTarget_loss, 0)
-            
-            logger.add_scalar('val/source-prior-loss', valSource_unSuploss, 0)
-            logger.add_scalar('val/target-prior-loss', valTarget_unSuploss, 0)
-      elif not args.sourceOnly:
-            valTarget_mpjpe, valTarget_loss, valTarget_unSuploss = validate(args, 'Target', valTarget_loader, model, None, 0, visualize=True, logger=logger, unnorm_net=trainSource_dataset._unnormalize_pose, unnorm_tgt=valTarget_dataset._unnormalize_pose)
-            valSource_mpjpe, valSource_loss, valSource_unSuploss = validate(args, 'Source', valSource_loader, model, None, 0, unnorm_net=trainSource_dataset._unnormalize_pose, unnorm_tgt=valSource_dataset._unnormalize_pose)
-            logger.add_scalar('val/target-accuracy', valTarget_mpjpe, 0)
-            logger.add_scalar('val/target-regr-loss', valTarget_loss, 0)
-            logger.add_scalar('val/target-unsup-loss', valTarget_unSuploss, 0)
-            logger.add_scalar('val/source-accuracy', valSource_mpjpe, 0)
-            logger.add_scalar('val/source-regr-loss', valSource_loss, 0)
-            logger.add_scalar('val/source-unsup-loss', valSource_unSuploss, 0)
+      trainSource_loader = torch.utils.data.DataLoader(trainSource_dataset, batch_size=args.batchSize, 
+                                                        shuffle=True,
+                                                        num_workers=args.workers if not args.test else 1, 
+                                                        pin_memory=True, collate_fn=collate_fn_cat)
 
+      if not args.shapeConsistency and not args.sourceOnly:
+            validate_priors(args, 'val/Source', valSource_loader, 
+                             model, prior_loss, 0,
+                             logger=logger, 
+                             unnorm_net=trainSource_dataset._unnormalize_pose, 
+                             unnorm_tgt=valTarget_dataset._unnormalize_pose)
+            validate_priors(args, 'val/Target', valTarget_loader, 
+                             model, prior_loss, 0, plot_img=True, 
+                             logger=logger, 
+                             unnorm_net=trainSource_dataset._unnormalize_pose, 
+                             unnorm_tgt=valTarget_dataset._unnormalize_pose)
+
+      elif not args.sourceOnly:
+            validate(args, 'val/Target', valTarget_loader, 
+                      model, None, 0, visualize=True, 
+                      logger=logger, 
+                      unnorm_net=trainSource_dataset._unnormalize_pose, 
+                      unnorm_tgt=valTarget_dataset._unnormalize_pose)
+            validate(args, 'val/Source', valSource_loader, 
+                      model, None, 0, 
+                      logger=logger,
+                      unnorm_net=trainSource_dataset._unnormalize_pose, 
+                      unnorm_tgt=valSource_dataset._unnormalize_pose)
 
 
       M = None
@@ -169,11 +181,17 @@ def main():
             print 'getY...'
             if args.dialModel:
                   model.set_domain(source=False)
-            Y, Y_raw = getY(SourceDataset('train', args.nViews)) if ref.category == 'Chair' else getYHumans(SourceDataset('train', args.nViews))
+            Y, Y_raw = [None, None]
+            if ref.category == 'Chair':
+                  Y, Y_raw = getY(SourceDataset('train', args.nViews))
+            else: 
+                  Y, Y_raw = getYHumans(SourceDataset('train', args.nViews))
             np.save('RotatedY-' + args.sourceDataset + '.npy', Y)
             np.save('RotatedYRaw-' + args.sourceDataset + '.npy', Y_raw)
             print 'RotatedY-' + args.sourceDataset + '.npy' + ' Was saved...'
-            M = initLatent(trainTarget_loader, model, Y, nViews = args.nViews, S = args.sampleSource, AVG = args.AVG, dial=DIAL)
+            M = initLatent(trainTarget_loader, model, Y, 
+                            nViews = args.nViews, S = args.sampleSource, 
+                            AVG = args.AVG, dial=DIAL)
       print 'Start training...'
       for epoch in range(1, args.epochs + 1):
             adjust_learning_rate(optimizer, epoch, args.dropLR)
@@ -182,55 +200,64 @@ def main():
                   if epoch % 4 == 0:
                         mean, std = valTarget_dataset._get_normalization_statistics()
                         net_mean, net_std = train_dataset.sourceDataset._get_normalization_statistics()
-                        valTarget_regr, valTarget_accuracy, valTarget_shapeLoss = eval_source_only(args, valTarget_loader, model, epoch, plot_img=True, logger=logger, statistics=(mean, std), net_statistics=(net_mean, net_std))
-                        logger.add_scalar('val/target-accuracy', valTarget_accuracy, epoch)
-                        logger.add_scalar('val/target-regr-loss', valTarget_regr, epoch)
-                        logger.add_scalar('val/target-unsup-loss', valTarget_shapeLoss, epoch)
-                        #logger.add_scalar('train/source-accuracy', trainSource_accuracy, epoch)
-                        #logger.add_scalar('train/source-regr-loss', trainSource_regr, epoch)
-                        #logger.add_scalar('train/source-unsup-loss', trainSource_shapeLoss, epoch)
+                        eval_source_only(args, 'val/Target', valTarget_loader, model, 
+                                          epoch, plot_img=True, logger=logger, 
+                                          statistics=(mean, std), 
+                                          net_statistics=(net_mean, net_std))
                         
             elif args.shapeConsistency:
                   if args.shapeWeight > ref.eps and args.dialModel:
                         train_loader = fusion_loader
                         len_loader = len(train_loader)
-                        train_mpjpe, train_loss, train_unSuploss = dial_train(args, (train_loader, len_loader), model, optimizer, M, epoch, dial=DIAL, nViews=args.nViews)
+                        dial_train(args, (train_loader, len_loader), model, 
+                                    optimizer, M, epoch, dial=DIAL, nViews=args.nViews)
                   else:
                         train_loader = fusion_loader
-                        train_mpjpe, train_loss, train_unSuploss = train(args, train_loader, model, optimizer, M, epoch, dial=DIAL, nViews=args.nViews)
+                        train(args, train_loader, model, optimizer, M, epoch, 
+                               dial=DIAL, nViews=args.nViews)
                   if args.shapeWeight > ref.eps:
                         trainTarget_loader.dataset.shuffle()
                   else:
                         train_loader.dataset.targetDataset.shuffle()
                   if args.shapeWeight > ref.eps and epoch % args.intervalUpdateM == 0:
-                        M = stepLatent(trainTarget_loader, model, M, Y, nViews = args.nViews, lamb = args.lamb, mu = args.mu, S = args.sampleSource, call_count=call_count, dial=DIAL)
+                        M = stepLatent(trainTarget_loader, model, M, Y, 
+                                        nViews = args.nViews, lamb = args.lamb, 
+                                        mu = args.mu, S = args.sampleSource, 
+                                        call_count=call_count, dial=DIAL)
                         call_count += 1
                   if epoch % 2 == 0:
-                        valTarget_mpjpe, valTarget_loss, valTarget_unSuploss = validate(args, 'Target', valTarget_loader, model, None, epoch, visualize=True, logger=logger, unnorm_net=trainSource_dataset._unnormalize_pose, unnorm_tgt=valTarget_dataset._unnormalize_pose)
-                        logger.add_scalar('val/target-accuracy', valTarget_mpjpe, epoch)
-                        logger.add_scalar('val/target-regr-loss', valTarget_loss, epoch)
-                        logger.add_scalar('val/target-unsup-loss', valTarget_unSuploss, epoch)
+                        validate(args, 'val/Target', valTarget_loader, model, 
+                                  None, epoch, visualize=True, 
+                                  logger=logger, 
+                                  unnorm_net=trainSource_dataset._unnormalize_pose, 
+                                  unnorm_tgt=valTarget_dataset._unnormalize_pose)
                   if epoch % 5 == 0:
-                        valSource_mpjpe, valSource_loss, valSource_unSuploss = validate(args, 'Source', valSource_loader, model, None, epoch, unnorm_net=trainSource_dataset._unnormalize_pose, unnorm_tgt=valSource_dataset._unnormalize_pose)
-                        logger.add_scalar('val/source-accuracy', valSource_mpjpe, epoch)
-                        logger.add_scalar('val/source-regr-loss', valSource_loss, epoch)
-                        logger.add_scalar('val/source-unsup-loss', valSource_unSuploss, epoch)
+                        validate(args, 'val/Source', valSource_loader, model, 
+                                  None, epoch, 
+                                  logger=logger,
+                                  unnorm_net=trainSource_dataset._unnormalize_pose, 
+                                  unnorm_tgt=valSource_dataset._unnormalize_pose)
                         
             elif not args.sourceOnly:
-                  train_priors(args, [trainTarget_loader], model, prior_loss, args.batch_norm, logger, optimizer, epoch-1, threshold = args.threshold)#,unnorm_net=trainSource_dataset._unnormalize_pose, unnorm_tgt=valTarget_dataset._unnormalize_pose)
+                  train_priors(args, [trainTarget_loader], model, 
+                                prior_loss, args.batch_norm, logger, 
+                                optimizer, epoch-1, threshold = args.threshold)
+                                #,unnorm_net=trainSource_dataset._unnormalize_pose, 
+                                #unnorm_tgt=valTarget_dataset._unnormalize_pose)
                   
                   if epoch % 2 == 0:
-                        valTarget_mpjpe, valTarget_shape, valTarget_loss, valTarget_unSuploss = validate_priors(args, 'Target', valTarget_loader, model, prior_loss, epoch, plot_img=True, logger=logger,unnorm_net=trainSource_dataset._unnormalize_pose, unnorm_tgt=valTarget_dataset._unnormalize_pose)
-                        logger.add_scalar('val/target-accuracy', valTarget_mpjpe, epoch)
-                        logger.add_scalar('val/target-accuracy-shape', valTarget_shape, epoch)
-                        logger.add_scalar('val/target-regr-loss', valTarget_loss, epoch)
-                        logger.add_scalar('val/target-prior-loss', valTarget_unSuploss, epoch)
+                        validate_priors(args, 'val/Target', valTarget_loader, 
+                                         model, prior_loss, epoch, plot_img=True, 
+                                         logger=logger,
+                                         unnorm_net=trainSource_dataset._unnormalize_pose, 
+                                         unnorm_tgt=valTarget_dataset._unnormalize_pose)
                   
                   if epoch % 5 == 0:
-                        valSource_mpjpe, valSource_shape, valSource_loss, valSource_unSuploss = validate_priors(args, 'Source', valSource_loader, model, prior_loss, epoch, unnorm_net=trainSource_dataset._unnormalize_pose, unnorm_tgt=valTarget_dataset._unnormalize_pose)
-                        logger.add_scalar('val/source-accuracy', valSource_mpjpe, epoch)
-                        logger.add_scalar('val/source-prior-loss', valSource_unSuploss, epoch)
-                        logger.add_scalar('val/source-regr-loss', valSource_loss, epoch)
+                        validate_priors(args, 'val/Source', valSource_loader, 
+                                         model, prior_loss, epoch, 
+                                         logger=logger,
+                                         unnorm_net=trainSource_dataset._unnormalize_pose, 
+                                         unnorm_tgt=valTarget_dataset._unnormalize_pose)
                         
             if epoch % 10 == 0:
                   torch.save({
