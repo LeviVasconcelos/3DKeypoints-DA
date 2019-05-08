@@ -20,7 +20,7 @@ from datasets.Fusion import Fusion
 from datasets.humans36m import Humans36mDataset
 
 from utils.utils import createDirIfNonExistent
-from utils.logger import Logger
+from utils.logger import Logger, log_parameters
 
 from opts import opts
 from train import train, validate, test, train_source_only, eval_source_only
@@ -63,6 +63,7 @@ splits = ['train', 'valSource', 'valTarget']
 kHumansDataset = ['HumansRGB', 'HumansDepth']
 DIAL = args.approx_dial
 def main():
+  log_parameters(args)  
   call_count = 0
   total_runs = args.runs if not args.test else 1
   for run in range(total_runs):
@@ -112,7 +113,6 @@ def main():
                                                      iterate=False, J=ref.J, rotation_weight=0, 
                                                      scale_weight=0, debug=args.DEBUG,  
                                                      debug_folder=args.debug_folder)
-
       if args.test:
             if not args.shapeConsistency:
                   test(args, valTarget_loader, model, prior_loss, None)
@@ -151,29 +151,44 @@ def main():
                                                         num_workers=args.workers if not args.test else 1, 
                                                         pin_memory=True, collate_fn=collate_fn_cat)
 
+      lambda_identity = lambda a: a 
+      unnorm_net = lambda_identity
+      unnorm_val_src = lambda_identity
+      unnorm_val_tgt = lambda_identity
+      unnorm_train_net = lambda_identity 
+      unnorm_train_tgt = lambda_identity
+      if ref.category == 'Human':
+          unnorm_net = trainSource_dataset._unnormalize_pose
+          unnorm_val_src = valTarget_dataset._unnormalize_pose
+          unnorm_val_tgt = valSource_dataset._unnormalize_pose
+          if args.unnormalized:
+              unnorm_train_net = trainSource_dataset._unnormalize_pose
+              unnorm_train_tgt = trainTarget_dataset._unnormalize_pose 
+
+
       if not args.shapeConsistency and not args.sourceOnly:
             validate_priors(args, 'val/Source', valSource_loader, 
                              model, prior_loss, 0,
                              logger=logger, 
-                             unnorm_net=trainSource_dataset._unnormalize_pose, 
-                             unnorm_tgt=valTarget_dataset._unnormalize_pose)
+                             unnorm_net=unnorm_net, 
+                             unnorm_tgt=unnorm_val_tgt)
             validate_priors(args, 'val/Target', valTarget_loader, 
                              model, prior_loss, 0, plot_img=True, 
                              logger=logger, 
-                             unnorm_net=trainSource_dataset._unnormalize_pose, 
-                             unnorm_tgt=valTarget_dataset._unnormalize_pose)
+                             unnorm_net=unnorm_net, 
+                             unnorm_tgt=unnorm_val_tgt)
 
       elif not args.sourceOnly:
             validate(args, 'val/Target', valTarget_loader, 
                       model, None, 0, visualize=True, 
                       logger=logger, 
-                      unnorm_net=trainSource_dataset._unnormalize_pose, 
-                      unnorm_tgt=valTarget_dataset._unnormalize_pose)
+                      unnorm_net=unnorm_net, 
+                      unnorm_tgt=unnorm_val_tgt)
             validate(args, 'val/Source', valSource_loader, 
                       model, None, 0, 
                       logger=logger,
-                      unnorm_net=trainSource_dataset._unnormalize_pose, 
-                      unnorm_tgt=valSource_dataset._unnormalize_pose)
+                      unnorm_net=unnorm_net, 
+                      unnorm_tgt=unnorm_val_src)
 
 
       M = None
@@ -229,35 +244,35 @@ def main():
                         validate(args, 'val/Target', valTarget_loader, model, 
                                   None, epoch, visualize=True, 
                                   logger=logger, 
-                                  unnorm_net=trainSource_dataset._unnormalize_pose, 
-                                  unnorm_tgt=valTarget_dataset._unnormalize_pose)
+                                  unnorm_net=unnorm_net,
+                                  unnorm_tgt=unnorm_val_tgt)
                   if epoch % 5 == 0:
                         validate(args, 'val/Source', valSource_loader, model, 
                                   None, epoch, 
                                   logger=logger,
-                                  unnorm_net=trainSource_dataset._unnormalize_pose, 
-                                  unnorm_tgt=valSource_dataset._unnormalize_pose)
+                                  unnorm_net=unnorm_net,
+                                  unnorm_tgt=unnorm_val_src)
                         
             elif not args.sourceOnly:
                   train_priors(args, [trainTarget_loader], model, 
                                 prior_loss, args.batch_norm, logger, 
-                                optimizer, epoch-1, threshold = args.threshold)
-                                #,unnorm_net=trainSource_dataset._unnormalize_pose, 
-                                #unnorm_tgt=valTarget_dataset._unnormalize_pose)
+                                optimizer, epoch-1, threshold = args.threshold,
+                                unnorm_net=unnorm_train_net, 
+                                unnorm_tgt=unnorm_train_tgt)
                   
                   if epoch % 2 == 0:
                         validate_priors(args, 'val/Target', valTarget_loader, 
                                          model, prior_loss, epoch, plot_img=True, 
                                          logger=logger,
-                                         unnorm_net=trainSource_dataset._unnormalize_pose, 
-                                         unnorm_tgt=valTarget_dataset._unnormalize_pose)
+                                         unnorm_net=unnorm_net, 
+                                         unnorm_tgt=unnorm_val_tgt)
                   
                   if epoch % 5 == 0:
                         validate_priors(args, 'val/Source', valSource_loader, 
                                          model, prior_loss, epoch, 
                                          logger=logger,
-                                         unnorm_net=trainSource_dataset._unnormalize_pose, 
-                                         unnorm_tgt=valTarget_dataset._unnormalize_pose)
+                                         unnorm_net=unnorm_net, 
+                                         unnorm_tgt=unnorm_val_src)
                         
             if epoch % 10 == 0:
                   torch.save({

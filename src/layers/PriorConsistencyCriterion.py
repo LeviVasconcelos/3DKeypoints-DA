@@ -80,9 +80,10 @@ class AbstractPriorLoss(nn.Module):
     else:
           print('Initializing a distances refiner')
           self.refiner=(self.refine_distances)
-          factor = 1.#self.adjacency.to(device) #torch.exp((torch.abs(Corr))).view(1,self.J,self.J,self.J,self.J)*self.adjacency
-          #factor = self.adjacency.to(device)
-          self.normalizer = factor*self.mask_no_self_connections*self.adjacency + self.self_keypoint_props
+          factor = 1.
+          if distances_refinement == 'adjacency':
+              factor = self.adjacency.to(device)
+          self.normalizer = factor*self.mask_no_self_connections + self.self_keypoint_props
           self.normalizer = self.normalizer/(self.normalizer.sum(-1).sum(-1).view(1,self.J,self.J,1,1))
           self.normalizer = self.normalizer.to(device)
           print('PERFORMING NORMALIZER CHECKS')

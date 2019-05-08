@@ -7,7 +7,7 @@ class opts():
     self.parser = argparse.ArgumentParser(description='3D Keypoint')
   
   def init(self):
-    self.parser.add_argument('-expID', default = 'defult', 
+    self.parser.add_argument('-expID', default = 'default', 
                                help='path to save')
     self.parser.add_argument('-targetDataset', default='Redwood', type=str, 
                                help='Redwood | ShapeNet | RedwoodRGB | 3DCNN')
