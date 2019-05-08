@@ -114,7 +114,7 @@ def compute_images3D(img, pred, gt, index):
 
 
 
-def train_step(args, split, epoch, loader, model, loss, update_bn=True, logger=None, optimizer = None, M = None, f = None, nViews=ref.nViews,device='cuda', threshold = 0.9):
+def train_step(args, split, epoch, loader, model, loss, update_bn=True, logger=None, optimizer = None, M = None, f = None, nViews=ref.nViews,device='cuda', threshold = 0.9, unnorm_net=(lambda pose:pose), unnorm_tgt=(lambda pose:pose)):
   prior_loss = []
 
   if update_bn>0:
@@ -131,7 +131,8 @@ def train_step(args, split, epoch, loader, model, loss, update_bn=True, logger=N
     input_var = input.to(device)
     target_var = target.to(device)
     output = model(input_var)
-    cr_loss = loss(output, dt=target_var)
+    
+    cr_loss = loss(unnorm_net(output), dt=unnorm_tgt(target_var))
     if torch.isnan(output).sum() > 0:
         print('OUTPUT WITH NANS DURING TRAINING %d' % i)
         return
@@ -205,8 +206,8 @@ def eval_step(args, split, epoch, loader, model, loss, update=True, optimizer = 
 
   return np.array(accuracy_this).mean(),np.array(accuracy_shape).mean(), np.array(regr_loss).mean(), np.array(prior_loss).mean()
 
-def train_priors(args, train_loader, model, loss, update_bn, logger, optimizer, epoch, nViews=ref.nViews, threshold = 0.9):
-  return train_step(args, 'train', epoch, train_loader[0], model, loss, update_bn, logger, optimizer, threshold=threshold)
+def train_priors(args, train_loader, model, loss, update_bn, logger, optimizer, epoch, nViews=ref.nViews, threshold = 0.9, unnorm_net=(lambda pose:pose), unnorm_tgt=(lambda pose:pose)):
+  return train_step(args, 'train', epoch, train_loader[0], model, loss, update_bn, logger, optimizer, threshold=threshold, unnorm_net=(lambda pose:pose), unnorm_tgt=(lambda pose:pose))
 
 def validate_priors(args, supTag, val_loader, model, loss, epoch, update = False, plot_img=False, logger=None, unnorm_net=(lambda pose:pose), unnorm_tgt=(lambda pose:pose)):
   return eval_step(args, 'val' + supTag, epoch, val_loader, model,loss,plot_img = plot_img, update=update, logger = logger, unnorm_net=unnorm_net, unnorm_tgt=unnorm_tgt)

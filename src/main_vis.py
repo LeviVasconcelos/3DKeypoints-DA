@@ -103,7 +103,7 @@ def main():
             elif args.distsOnly:
                   prior_loss = PriorRegressionCriterion(args.propsFile, norm = args.lossNorm, distances_refinement=args.distsRefiner, obj='dists')
             else:
-                  prior_loss = PriorSMACOFCriterion(args.propsFile, norm = args.lossNorm, distances_refinement=args.distsRefiner, iterate=False, J=ref.J, rotation_weight=0, scale_weight=0, debug=args.DEBUG)
+                  prior_loss = PriorSMACOFCriterion(args.propsFile, norm = args.lossNorm, distances_refinement=args.distsRefiner, iterate=False, J=ref.J, rotation_weight=0, scale_weight=0, debug=args.DEBUG, debug_folder=args.debug_folder)
 
       if args.test:
             if not args.shapeConsistency:
@@ -178,14 +178,11 @@ def main():
       for epoch in range(1, args.epochs + 1):
             adjust_learning_rate(optimizer, epoch, args.dropLR)
             if args.sourceOnly:
-                  #(args, train_loader, model, optimizer, epoch, Views=ref.nViews):
                   train_source_only(args, trainSource_loader, model, optimizer, epoch)
                   if epoch % 4 == 0:
-                        #(args, val_loader, model, loss, epoch, plot_img=False, logger=None):
                         mean, std = valTarget_dataset._get_normalization_statistics()
                         net_mean, net_std = train_dataset.sourceDataset._get_normalization_statistics()
                         valTarget_regr, valTarget_accuracy, valTarget_shapeLoss = eval_source_only(args, valTarget_loader, model, epoch, plot_img=True, logger=logger, statistics=(mean, std), net_statistics=(net_mean, net_std))
-                        #trainSouce_regr, trainSource_accuracy, trainSource_shapeLoss = eval_source_only(args, trainSource_loader, model, epoch, plot_img=True, logger=logger)
                         logger.add_scalar('val/target-accuracy', valTarget_accuracy, epoch)
                         logger.add_scalar('val/target-regr-loss', valTarget_regr, epoch)
                         logger.add_scalar('val/target-unsup-loss', valTarget_shapeLoss, epoch)
@@ -220,7 +217,7 @@ def main():
                         logger.add_scalar('val/source-unsup-loss', valSource_unSuploss, epoch)
                         
             elif not args.sourceOnly:
-                  train_priors(args, [trainTarget_loader], model, prior_loss, args.batch_norm, logger, optimizer, epoch-1, threshold = args.threshold)
+                  train_priors(args, [trainTarget_loader], model, prior_loss, args.batch_norm, logger, optimizer, epoch-1, threshold = args.threshold)#,unnorm_net=trainSource_dataset._unnormalize_pose, unnorm_tgt=valTarget_dataset._unnormalize_pose)
                   
                   if epoch % 2 == 0:
                         valTarget_mpjpe, valTarget_shape, valTarget_loss, valTarget_unSuploss = validate_priors(args, 'Target', valTarget_loader, model, prior_loss, epoch, plot_img=True, logger=logger,unnorm_net=trainSource_dataset._unnormalize_pose, unnorm_tgt=valTarget_dataset._unnormalize_pose)

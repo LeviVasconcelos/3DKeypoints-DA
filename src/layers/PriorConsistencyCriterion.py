@@ -71,7 +71,6 @@ class AbstractPriorLoss(nn.Module):
     self.adjacency = adjacency.to('cuda')
     self.mask_no_self_connections = mask_no_self_connections.to(device)
     self.self_keypoint_props = self_keypoint_props.to(device)
-
     self.eyeJ2 = self.eyeJ2.to(device)
     self.eyeJ = self.eyeJ.to(device)
 
@@ -83,7 +82,7 @@ class AbstractPriorLoss(nn.Module):
           self.refiner=(self.refine_distances)
           factor = 1.#self.adjacency.to(device) #torch.exp((torch.abs(Corr))).view(1,self.J,self.J,self.J,self.J)*self.adjacency
           #factor = self.adjacency.to(device)
-          self.normalizer = factor*self.mask_no_self_connectionsself + self.self_keypoint_props
+          self.normalizer = factor*self.mask_no_self_connections*self.adjacency + self.self_keypoint_props
           self.normalizer = self.normalizer/(self.normalizer.sum(-1).sum(-1).view(1,self.J,self.J,1,1))
           self.normalizer = self.normalizer.to(device)
           print('PERFORMING NORMALIZER CHECKS')
@@ -162,7 +161,6 @@ class PriorRegressionCriterion(AbstractPriorLoss):
           self.forward=(self.forward_dists)
     else:
           self.forward=(self.forward_synth)
-  
   def forward_props(self, prediction, dt=None):
     eps = 1e-6
     prediction = prediction.view(prediction.shape[0],self.J,-1)
@@ -204,13 +202,14 @@ class PriorRegressionCriterion(AbstractPriorLoss):
 ##############################
 
 class PriorSMACOFCriterion(AbstractPriorLoss):
-  def __init__(self, path, J=10, eps = 10**(-6), device='cuda', norm='l2', distances_refinement=None, iterate=False, rotation_weight=0, scale_weight=0, debug=0):
+  def __init__(self, path, J=10, eps = 10**(-6), device='cuda', norm='l2', distances_refinement=None, iterate=False, rotation_weight=0, scale_weight=0, debug=0, debug_folder=''):
     super(PriorSMACOFCriterion, self).__init__(path, J, eps, device, norm, distances_refinement)
 
     self.eyeK = torch.eye(3).unsqueeze(0).float()
     self.rotation_weight = rotation_weight
     self.scale_weight = scale_weight
     self.dists_mask = torch.FloatTensor(1,self.J,self.J).zero_()
+    self.debug_folder=debug_folder
     for i in range(self.J):
           for j in range(self.J):
                 if j>i:
@@ -254,19 +253,23 @@ class PriorSMACOFCriterion(AbstractPriorLoss):
 
     return regression_term + self.scale_weight * scale_loss + self.rotation_weight * rotation_loss
 
-  def forward_debug(self, prediction, dt=None):
-    if self.last_epoch != self.epoch:
+  def forward_debug(self, prediction, dt=None, iters=100):
+    if self.last_epoch != self.epoch and prediction.shape[0] == 4:
         prediction = prediction.view(prediction.shape[0], self.J, -1)
         dt = dt.view(dt.shape[0], self.J, -1)
         dists_predictions = compute_distances(prediction, eps=self.eps)
         gt_dists = compute_distances(dt, eps=self.eps)
         gt_props, _ = compute_proportions(gt_dists, eps=self.eps)
         gt_props = gt_props.view(gt_dists.shape[0],self.J,self.J,self.J,self.J)
-        reconstructed_dists = (self.refiner(dists_predictions, gt_props)*(1.-self.eyeJ))
-        reconstructed_kps = self.iterate(prediction, reconstructed_dists, torch.ones_like(gt_dists))
-        np.save('reconstructed_%d' % (self.epoch), reconstructed_kps.detach().cpu().numpy())
-        np.save('predictions_%d' % (self.epoch), prediction.detach().cpu().numpy())
-        np.save('ground_truth_%d' % (self.epoch), dt.detach().cpu().numpy())
+        reconstructed_gt_dists = (self.refiner(dists_predictions, gt_props)*(1.-self.eyeJ))
+        reconstructed_mean_dists = (self.refiner(dists_predictions, self.priorMean)*(1.-self.eyeJ))
+        reconstructed_kps = self.iterate(prediction, reconstructed_gt_dists, torch.ones_like(gt_dists), iters=iters)
+        reconstructed_mean_kps = self.iterate(prediction, reconstructed_mean_dists, torch.ones_like(gt_dists), iters=iters)
+        
+        np.save(os.path.join(self.debug_folder,'reconstructed_%d_iters_%d' % (self.epoch, iters)), reconstructed_kps.detach().cpu().numpy())
+        np.save(os.path.join(self.debug_folder,'reconstructed_mean_%d_iters_%d' % (self.epoch, iters)), reconstructed_mean_kps.detach().cpu().numpy())
+        np.save(os.path.join(self.debug_folder,'predictions_%d' % (self.epoch)), prediction.detach().cpu().numpy())
+        np.save(os.path.join(self.debug_folder,'ground_truth_%d' % (self.epoch)), dt.detach().cpu().numpy())
         self.last_epoch = self.epoch
     return self.forward_objective(prediction, dt)
 
@@ -276,16 +279,17 @@ class PriorSMACOFCriterion(AbstractPriorLoss):
     #print('Predictions distances computation')
     dists_predictions = compute_distances(prediction, eps=self.eps)
     #print('GT distance computation')
-    dists = compute_distances(dt, eps=self.eps)
-    props, idx = compute_proportions(dists, eps=self.eps)
-    props = props.view(dists.shape[0],self.J,self.J,self.J,self.J)
-    if idx is not None:
-       issue_dt = dt[idx[0]].cpu().numpy()
-       np.save('issue_batch_%d.npy' % (idx[0]), issue_dt)
-       print('***** FILE SAVED ****')
+    #dists = compute_distances(dt, eps=self.eps)
+    #props, idx = compute_proportions(dists, eps=self.eps)
+    #props = props.view(dists.shape[0],self.J,self.J,self.J,self.J)
+    #if idx is not None:
+    #   issue_dt = dt[idx[0]].cpu().numpy()
+    #   np.save('issue_batch_%d.npy' % (idx[0]), issue_dt)
+    #   print('***** FILE SAVED ****')
     #print('props sum: ', props.sum())
     #print('prior Mean sum: ', self.priorMean.sum())
-    gt_dists = (self.refiner(dists_predictions,props)*(1.-self.eyeJ))
+    #gt_dists = (self.refiner(dists_predictions,props)*(1.-self.eyeJ))
+    gt_dists = (self.refiner(dists_predictions,self.priorMean)*(1.-self.eyeJ))
     #f = open('diff_dists.txt', 'a+')
     #f.write('%lf\n' % torch.abs((gt_dists - dists_predictions)).mean().item())
     #f.close()
@@ -311,7 +315,7 @@ class PriorSMACOFCriterion(AbstractPriorLoss):
     #	print(props[0])
     # 	print()
     #	exit(1)
-    error = self.compute_obj(prediction, dists, w)/self.J
+    error = self.compute_obj(prediction, gt_dists, w)/self.J
     #mask_error = (gt_dists.mean(-1).mean(-1)<2.0).float()
     return error#*torch.exp(-error)#mask_error
 
