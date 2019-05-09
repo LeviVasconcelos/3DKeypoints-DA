@@ -162,8 +162,12 @@ def main():
           unnorm_val_src = valTarget_dataset._unnormalize_pose
           unnorm_val_tgt = valSource_dataset._unnormalize_pose
           if args.unnormalized:
+              print('unnormalized')
               unnorm_train_net = trainSource_dataset._unnormalize_pose
               unnorm_train_tgt = trainTarget_dataset._unnormalize_pose 
+      print('unnorm_train_net is identity: ', unnorm_train_net == lambda_identity)
+      print('unnorm_train_tgt is identity: ', unnorm_train_tgt == lambda_identity)
+
 
 
       if not args.shapeConsistency and not args.sourceOnly:

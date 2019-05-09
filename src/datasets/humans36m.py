@@ -190,7 +190,7 @@ class Humans36mDataset(data.Dataset):
             return (pose - self.poses_mean) / (self.poses_std + 1e-7)
       
       def _unnormalize_pose(self, pose):
-	      return pose *  (torch.from_numpy(self.poses_std).float().to('cuda') + 1e-7) + torch.tensor(self.poses_mean).float().to('cuda')
+	      return pose *  (torch.from_numpy(self.poses_std).float().to('cuda').unsqueeze(0) + 1e-7) + torch.tensor(self.poses_mean).float().to('cuda').unsqueeze(0)
       
       def _build_access_index(self):
             self.access_order = []
