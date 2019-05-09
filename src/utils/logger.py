@@ -24,6 +24,7 @@ def log_parameters(args):
     f.write('distsRefiner: %s\n' % (args.distsRefiner if args.distsRefiner is not None else 'Identity'))
     f.write('logDir: %s\n' % args.logDir)
     f.write('expID: %s \n' % args.expID)
+    f.write('debug: %s\n' % args.debug_folder)
 
 class Logger(object):
     

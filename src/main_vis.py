@@ -62,7 +62,12 @@ else:
 splits = ['train', 'valSource', 'valTarget']
 kHumansDataset = ['HumansRGB', 'HumansDepth']
 DIAL = args.approx_dial
+refiners = ['adjacency', 'all']
 def main():
+  if args.distsRefiner is not None and args.distsRefiner not in refiners:
+     print('ERROR: refiner %s does not match any refiner: ' % args.distsRefiner,
+             refiners)
+     return
   log_parameters(args)  
   call_count = 0
   total_runs = args.runs if not args.test else 1

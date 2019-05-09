@@ -205,7 +205,8 @@ class PriorRegressionCriterion(AbstractPriorLoss):
 class PriorSMACOFCriterion(AbstractPriorLoss):
   def __init__(self, path, J=10, eps = 10**(-6), device='cuda', norm='l2', distances_refinement=None, iterate=False, rotation_weight=0, scale_weight=0, debug=0, debug_folder=''):
     super(PriorSMACOFCriterion, self).__init__(path, J, eps, device, norm, distances_refinement)
-
+    self.debug_batches = 5
+    self.debug_counter = 0
     self.eyeK = torch.eye(3).unsqueeze(0).float()
     self.rotation_weight = rotation_weight
     self.scale_weight = scale_weight
@@ -255,23 +256,33 @@ class PriorSMACOFCriterion(AbstractPriorLoss):
     return regression_term + self.scale_weight * scale_loss + self.rotation_weight * rotation_loss
 
   def forward_debug(self, prediction, dt=None, iters=100):
-    if self.last_epoch != self.epoch and prediction.shape[0] == 4:
-        prediction = prediction.view(prediction.shape[0], self.J, -1)
-        dt = dt.view(dt.shape[0], self.J, -1)
-        dists_predictions = compute_distances(prediction, eps=self.eps)
-        gt_dists = compute_distances(dt, eps=self.eps)
-        gt_props, _ = compute_proportions(gt_dists, eps=self.eps)
-        gt_props = gt_props.view(gt_dists.shape[0],self.J,self.J,self.J,self.J)
-        reconstructed_gt_dists = (self.refiner(dists_predictions, gt_props)*(1.-self.eyeJ))
-        reconstructed_mean_dists = (self.refiner(dists_predictions, self.priorMean)*(1.-self.eyeJ))
-        reconstructed_kps = self.iterate(prediction, reconstructed_gt_dists, torch.ones_like(gt_dists), iters=iters)
-        reconstructed_mean_kps = self.iterate(prediction, reconstructed_mean_dists, torch.ones_like(gt_dists), iters=iters)
-        
-        np.save(os.path.join(self.debug_folder,'reconstructed_%d_iters_%d' % (self.epoch, iters)), reconstructed_kps.detach().cpu().numpy())
-        np.save(os.path.join(self.debug_folder,'reconstructed_mean_%d_iters_%d' % (self.epoch, iters)), reconstructed_mean_kps.detach().cpu().numpy())
-        np.save(os.path.join(self.debug_folder,'predictions_%d' % (self.epoch)), prediction.detach().cpu().numpy())
-        np.save(os.path.join(self.debug_folder,'ground_truth_%d' % (self.epoch)), dt.detach().cpu().numpy())
-        self.last_epoch = self.epoch
+    if (self.last_epoch != self.epoch and prediction.shape[0] == 4):
+        if  self.debug_counter < self.debug_batches:
+            self.debug_counter += 1
+            prediction = prediction.view(prediction.shape[0], self.J, -1)
+            dt = dt.view(dt.shape[0], self.J, -1)
+            dists_predictions = compute_distances(prediction, eps=self.eps)
+            gt_dists = compute_distances(dt, eps=self.eps)
+            gt_props, _ = compute_proportions(gt_dists, eps=self.eps)
+            gt_props = gt_props.view(gt_dists.shape[0],self.J,self.J,self.J,self.J)
+            reconstructed_gt_dists = self.refiner(dists_predictions, gt_props)*(1.-self.eyeJ)
+            reconstructed_mean_dists = self.refiner(dists_predictions, self.priorMean)*(1.-self.eyeJ)
+            reconstructed_kps = self.iterate(prediction, reconstructed_gt_dists, 
+                                              torch.ones_like(gt_dists), iters=iters)
+            reconstructed_mean_kps = self.iterate(prediction, reconstructed_mean_dists, 
+                                                   torch.ones_like(gt_dists), iters=iters)
+            
+            np.save(os.path.join(self.debug_folder,'batch_%d_reconstructed_%d_iters_%d' % (self.debug_counter, self.epoch, iters)), 
+                                  reconstructed_kps.detach().cpu().numpy())
+            np.save(os.path.join(self.debug_folder,'batch_%d_reconstructed_mean_%d_iters_%d' % (self.debug_counter, self.epoch, iters)), 
+                                  reconstructed_mean_kps.detach().cpu().numpy())
+            np.save(os.path.join(self.debug_folder,'batch_%d_predictions_%d' % (self.debug_counter, self.epoch)), 
+                                  prediction.detach().cpu().numpy())
+            np.save(os.path.join(self.debug_folder,'batch_%d_ground_truth_%d' % (self.debug_counter, self.epoch)), 
+                                  dt.detach().cpu().numpy())
+        else:
+            self.last_epoch = self.epoch
+            self.debug_counter = 0
     return self.forward_objective(prediction, dt)
 
   def forward_objective(self, prediction, dt=None):
