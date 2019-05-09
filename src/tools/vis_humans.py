@@ -17,7 +17,7 @@ mpl.use('Agg')
 import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
 import mpl_toolkits.mplot3d
-from datasets.humans36m import Humans36mRGBDataset, Humans36mRGBDataset, Humans36mDepthDataset
+from datasets.humans36m import Humans36mRGBSourceDataset, Humans36mRGBTargetDataset 
 from mpl_toolkits.mplot3d import Axes3D
 import cv2
 
@@ -170,8 +170,17 @@ def showPair(imgs, gts, img_fnames, annot_fnames, univ_pose, out_dir, to_camera,
 def main():
       args = opts().parse()
       rgb = (args.dataset == 'HumansRGB')
-      h36m = Humans36mRGBDataset('train', 4, 10) if rgb else Humans36mDepthDataset('train', 1, 10)
-      out_dir = os.path.join(args.out_dir, args.dataset + '_S' + str(args.subject))
+      h36m_source = Humans36mRGBSourceDataset('train', 4) 
+      h36m_target = Humans36mRGBTargetDataset('train', 4)
+      source_mean, source_std = h36m_source._get_normalization_statistics()
+      target_mean, target_std = h36m_target._get_normalization_statistics()
+      fig, axis = plt.subplot()
+      #show_3D(axis, std, 'b')
+      show3D(axis, source_mean, 'r')
+      show3D(axis, target_mean, 'r')
+      plt.show()
+      
+      '''out_dir = os.path.join(args.out_dir, args.dataset + '_S' + str(args.subject))
       imgs, annots, meta, mono_pose3d, univ_pose3d, original_pose3d, intrinsics, _ = h36m.__getitem__(2)
       to_camera = []
       for camera_pose in mono_pose3d:
@@ -188,7 +197,7 @@ def main():
             name_1 = "%d-0" % i
             name_2 = "%d-1" % i
             showPair((imgs[0], imgs[1]), (mono_pose3d[0], mono_pose3d[1]), (name_1, name_2), None, original_pose3d[0], out_dir, to_camera, intrinsics)
-            print 'after', imgs.shape
+            print 'after', imgs.shape'''
             
             
       

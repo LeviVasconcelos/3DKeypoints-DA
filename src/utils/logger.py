@@ -12,6 +12,18 @@ try:
 except ImportError:
     from io import BytesIO         # Python 3.x
 
+def log_parameters(args):
+    folder = args.save_path
+    f = open(os.path.join(folder, 'parameters.log'), 'w+') 
+    f.write('SourceDataset: %s\n' % args.sourceDataset)
+    f.write('TargetDataset: %s\n' % args.targetDataset)
+    f.write('PropsFiles: %s\n' % args.propsFile)
+    f.write('LR: %.5f\n' % args.LR)
+    f.write('DropLR: %d\n' % args.dropLR)
+    f.write('normalized: %r\n' % (not args.unnormalized))
+    f.write('distsRefiner: %s\n' % (args.distsRefiner if args.distsRefiner is not None else 'Identity'))
+    f.write('logDir: %s\n' % args.logDir)
+    f.write('expID: %s \n' % args.expID)
 
 class Logger(object):
     

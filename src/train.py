@@ -28,12 +28,14 @@ def source_only_train_step(args, epoch, loader, model, optimizer = None, device 
       bar = Bar('{}'.format(ref.category), max=len(loader))
       accumulate_loss = 0.
       count_loss = 0.
+      L1_crit = torch.nn.L1Loss()
       for i, (input, target, meta) in enumerate(loader):
             input_var = input.to(device)
             target_var = target.to(device)
             output = model(input_var)
             
-            loss = ((output - target_var.view(target_var.shape[0],-1)) ** 2).sum() / ref.J / 3 / input.shape[0]
+            #loss = ((output - target_var.view(target_var.shape[0],-1)) ** 2).sum() / ref.J / 3 / input.shape[0]
+            loss = torch.abs(output - target_var.view(target_var.shape[0],-1)).sum() / ref.J / 3 / input.shape[0]
             regression_loss.append(loss.item())
             accumulate_loss += loss.item()
             count_loss += 1.
@@ -49,22 +51,32 @@ def source_only_train_step(args, epoch, loader, model, optimizer = None, device 
       return np.array(regression_loss).mean()
 
 
-def source_only_eval(args, epoch, loader, model, plot_img = False, logger = None, device='cuda'):
+def source_only_eval(args, ds_split, epoch, loader, model, plot_img = False, logger = None, device='cuda', statistics=None, net_statistics=None):
+
       regr_loss = []
       accuracy_this = []
       accuracy_shape = []
       
       device = 'cuda'
       model.eval()
+      mean, std = statistics
+      mean = torch.from_numpy(mean).float().to(device)
+      std = torch.from_numpy(std).float().to(device)
+      net_mean, net_std = net_statistics
+      net_mean = torch.from_numpy(net_mean).float().to(device)
+      net_std = torch.from_numpy(net_std).float().to(device)
+
       for i, (input, target, meta) in enumerate(loader):
             input_var = input.to(device)
             target_var = target.to(device)
             output = model(input_var)
             
-            loss = ((output - target_var.view(target_var.shape[0],-1)) ** 2).sum() / ref.J / 3 / input.shape[0]
-
-            current_acc = accuracy(output.data, target, meta)
-            current_acc_shape = accuracy_dis(output.data, target, meta)
+            #loss = ((output - target_var.view(target_var.shape[0],-1)) ** 2).sum() / ref.J / 3 / input.shape[0]
+            loss = torch.abs(output - target_var.view(target_var.shape[0],-1)).sum() / ref.J / 3 / input.shape[0]
+            unormed_output = (output.view(input.shape[0], ref.J, 3) * net_std) + net_mean
+            unormed_target = (target_var * std) + mean
+            current_acc = accuracy(unormed_output.view(target_var.shape[0], -1).data, unormed_target.data, meta)
+            current_acc_shape = accuracy_dis(unormed_output.view(target_var.shape[0], -1).data, unormed_target.data, meta)
             
             accuracy_this.append(current_acc.item())
             accuracy_shape.append(current_acc_shape.item())
@@ -77,8 +89,8 @@ def source_only_eval(args, epoch, loader, model, plot_img = False, logger = None
                   #filename_2d = os.path.join(args.save_path, 'img2d_%s_%d_%d.png' % (args.expID, i, epoch))
                   #cv2.imwrite(filename_2d, numpy_img)
                   if i < 10:
-                        pred = output.data.cpu().numpy()[0].copy()
-                        gt = target.data.cpu().numpy()[0].copy()
+                        pred = unormed_output.data.cpu().numpy()[0].copy()
+                        gt = unormed_target.data.cpu().numpy()[0].copy()
                         #numpy_img = draw_2d(numpy_img, pred, (255,0,0))
                         #numpy_img = draw_2d(numpy_img, gt, (0,0,255))
                         #filename_2d = os.path.join(args.save_path, 'img2d_%s_%d_%d.png' % (args.expID, i, epoch))
@@ -91,16 +103,24 @@ def source_only_eval(args, epoch, loader, model, plot_img = False, logger = None
                         filename_3d = os.path.join(args.save_path, 'img3d_%s_%d_%d.png' % (args.expID, i, epoch))
                         plt.savefig(filename_3d)
                         logger.add_image('Image 3D ' + str(i), (np.asarray(Image.open(filename_3d))).transpose(2,0,1), epoch)
+                        plt.close()
                         #logger.add_image('Image 2D ' + str(i), (np.asarray(Image.open(filename_2d))).transpose(2,0,1), epoch)
-                      
-      return np.array(regr_loss).mean(), np.array(accuracy_this).mean(), np.array(accuracy_shape).mean()
+      regr_loss_mean = np.array(regr_loss).mean()
+      accuracy_mean = np.array(accuracy_this).mean()
+      accuracy_shape_mean =  np.array(accuracy_shape).mean()
+      if 'val' in ds_split:
+          tag = ds_split.split('/')[-1]   
+          logger.add_scalar('val/' + tag + '-accuracy', accuracy_mean, epoch)
+          logger.add_scalar('val/' + tag + '-regr-loss', regr_loss_mean, epoch)
+          logger.add_scalar('val/' + tag + '-unsup-loss', accuracy_shape_mean, epoch)
+                
+      return regr_loss_mean, accuracy_mean, accuracy_shape_mean
 
-
-def step(args, split, epoch, loader, model, optimizer = None, M = None, f = None, tag = None, dial=False, nViews=ref.nViews, visualize=False, logger=None):
+def step(args, ds_split, epoch, loader, model, optimizer = None, M = None, f = None, tag = None, dial=False, nViews=ref.nViews, visualize=False, logger=None, unnorm_net=(lambda pose:pose), unnorm_tgt=(lambda pose:pose)):
   losses, mpjpe, mpjpe_r = AverageMeter(), AverageMeter(), AverageMeter()
   viewLosses, shapeLosses, supLosses = AverageMeter(), AverageMeter(), AverageMeter()
   
-  if split == 'train':
+  if ds_split == 'train':
     model.train()
   else:
     model.eval()
@@ -120,9 +140,11 @@ def step(args, split, epoch, loader, model, optimizer = None, M = None, f = None
     input_var = input.cuda()
     target_var = target
     output = model(input_var)
+    target_var = unnorm_tgt(target_var.cuda()).cpu()
+    output = unnorm_net(output.view(input.shape[0], ref.J, 3)).view(input.shape[0], -1)
     loss = ShapeConsistencyCriterion(nViews, supWeight = 1, unSupWeight = args.shapeWeight, M = M)(output.cpu(), target_var, meta)
 
-    '''if split == 'test':
+    '''if ds_split == 'test':
       for j in range(input.numpy().shape[0]):
         img = (input.numpy()[j] * 255).transpose(1, 2, 0).astype(np.uint8)
         cv2.imwrite('{}/img_{}/{}.png'.format(args.save_path, tag, i * input.numpy().shape[0] + j), img)
@@ -148,10 +170,10 @@ def step(args, split, epoch, loader, model, optimizer = None, M = None, f = None
           if i < 10:
                 pred = output.data.cpu().numpy()[0].copy()
                 gt = target.data.cpu().numpy()[0].copy()
-                numpy_img = draw_2d(numpy_img, pred, (255,0,0))
-                numpy_img = draw_2d(numpy_img, gt, (0,0,255))
-                filename_2d = os.path.join(args.save_path, 'img2d_%s_%d_%d.png' % (args.expID, i, epoch))
-                cv2.imwrite(filename_2d, numpy_img)
+                #numpy_img = draw_2d(numpy_img, pred, (255,0,0))
+                #numpy_img = draw_2d(numpy_img, gt, (0,0,255))
+                #filename_2d = os.path.join(args.save_path, 'img2d_%s_%d_%d.png' % (args.expID, i, epoch))
+                #cv2.imwrite(filename_2d, numpy_img)
                 fig = plt.figure()
                 ax = fig.add_subplot((111), projection='3d')
                 draw_3d(ax, pred, 'r')
@@ -160,23 +182,30 @@ def step(args, split, epoch, loader, model, optimizer = None, M = None, f = None
                 filename_3d = os.path.join(args.save_path, 'img3d_%s_%d_%d.png' % (args.expID, i, epoch))
                 plt.savefig(filename_3d)
                 logger.add_image('Image 3D ' + str(i), (np.asarray(Image.open(filename_3d))).transpose(2,0,1), epoch)
-                logger.add_image('Image 2D ' + str(i), (np.asarray(Image.open(filename_2d))).transpose(2,0,1), epoch)
+                #logger.add_image('Image 2D ' + str(i), (np.asarray(Image.open(filename_2d))).transpose(2,0,1), epoch)
 
-    mpjpe_this = accuracy(output.data, target, meta)
-    mpjpe_r_this = accuracy_dis(output.data, target, meta)
-    shapeLoss = shapeConsistency(output.data, meta, nViews, M, split = split)
+    mpjpe_this = accuracy(output.data, target_var.data, meta)
+    mpjpe_r_this = accuracy_dis(output.data, target_var.data, meta)
+    shapeLoss = shapeConsistency(output.data, meta, nViews, M, split = ds_split)
 
     losses.update(loss.item(), input.size(0))
     shapeLosses.update(shapeLoss, input.size(0))
     mpjpe.update(mpjpe_this, input.size(0))
     mpjpe_r.update(mpjpe_r_this, input.size(0))
     
-    if split == 'train':
+    if ds_split == 'train':
       optimizer.zero_grad()
       loss.backward()
       optimizer.step()
     
-    Bar.suffix = '{split:10}: [{0:2}][{1:3}/{2:3}] | Total: {total:} | ETA: {eta:} | Loss {loss.avg:.6f} | shapeLoss {shapeLoss.avg:.6f} | AE {mpjpe.avg:.6f} | ShapeDis {mpjpe_r.avg:.6f}'.format(epoch, i, len(loader), total=bar.elapsed_td, eta=bar.eta_td, loss=losses, mpjpe=mpjpe, split = split, shapeLoss = shapeLosses, mpjpe_r = mpjpe_r)
+    if 'val' in ds_split:
+      tag = ds_split.split('/')[-1]
+      logger.add_scalar('val/' + tag + '-accuracy', mpjpe_this, epoch)
+      logger.add_scalar('val/' + tag + '-regr-loss', losses.avg, epoch)
+      logger.add_scalar('val/' + tag + '-unsup-loss', mpjpe_r_this, epoch)
+ 
+    
+    Bar.suffix = '{split:10}: [{0:2}][{1:3}/{2:3}] | Total: {total:} | ETA: {eta:} | Loss {loss.avg:.6f} | shapeLoss {shapeLoss.avg:.6f} | AE {mpjpe.avg:.6f} | ShapeDis {mpjpe_r.avg:.6f}'.format(epoch, i, len(loader), total=bar.elapsed_td, eta=bar.eta_td, loss=losses, mpjpe=mpjpe, split = ds_split, shapeLoss = shapeLosses, mpjpe_r = mpjpe_r)
     bar.next()
       
   bar.finish()
@@ -279,15 +308,14 @@ def dial_step(args, split, epoch, (loader, len_loader), model, optimizer = None,
 def train_source_only(args, train_loader, model, optimizer, epoch):
       return source_only_train_step(args, epoch, train_loader, model, optimizer, device = 'cuda')
 
-def eval_source_only(args, val_loader, model, epoch, plot_img=False, logger=None):
-      #(args, epoch, loader, model, plot_img = False, logger = None, device='cuda'):
-      return source_only_eval(args, epoch, val_loader, model, plot_img = plot_img, logger = logger)
+def eval_source_only(args, ds_split, val_loader, model, epoch, plot_img=False, logger=None, statistics=None, net_statistics=None):
+      return source_only_eval(args, ds_split, epoch, val_loader, model, plot_img = plot_img, logger = logger, statistics=statistics, net_statistics=net_statistics)
 
-def train(args, train_loader, model, optimizer, M, epoch, dial=False, nViews=ref.nViews):
-  return step(args, 'train', epoch, train_loader, model, optimizer, M = M, dial=dial)
+def train(args, train_loader, model, optimizer, M, epoch, dial=False, nViews=ref.nViews, unnorm_net=(lambda pose:pose), unnorm_tgt=(lambda pose:pose)):
+  return step(args, 'train', epoch, train_loader, model, optimizer, M = M, dial=dial, unnorm_net=unnorm_net, unnorm_tgt=unnorm_tgt)
 
-def validate(args, supTag, val_loader, model, M, epoch, visualize=False, logger=None):
-  return step(args, 'val' + supTag, epoch, val_loader, model, M = M, visualize=visualize, logger=logger)
+def validate(args, supTag, val_loader, model, M, epoch, visualize=False, logger=None, unnorm_net=(lambda pose:pose), unnorm_tgt=(lambda pose:pose)):
+  return step(args, 'val' + supTag, epoch, val_loader, model, M = M, visualize=visualize, logger=logger, unnorm_net=unnorm_net, unnorm_tgt=unnorm_tgt)
 
 def test(args, loader, model, M, f, tag):
   return step(args, 'test', 0, loader, model, M = M, f = f, tag = tag)

@@ -7,7 +7,7 @@ class opts():
     self.parser = argparse.ArgumentParser(description='3D Keypoint')
   
   def init(self):
-    self.parser.add_argument('-expID', default = 'defult', 
+    self.parser.add_argument('-expID', default = 'default', 
                                help='path to save')
     self.parser.add_argument('-targetDataset', default='Redwood', type=str, 
                                help='Redwood | ShapeNet | RedwoodRGB | 3DCNN')
@@ -68,8 +68,10 @@ class opts():
     self.parser.add_argument('-dial_copy_source', action = 'store_true', help='copy weights from source to target bn')
 
     self.parser.add_argument('-adda', action = 'store_true', help='performs adda stage')
-    
-    
+    self.parser.add_argument('-unnormalized', action = 'store_true', help='work with unnormalized data')
+
+    self.parser.add_argument('-debug_folder', default='', type=str, help='where to store debug data')
+
     
   def parse(self):
     self.init()

@@ -15,7 +15,7 @@ import sys
 import time
 import torch.nn as nn
 import itertools
-from utils.visualization import chair_show2D, chair_show3D
+from utils.visualization import chair_show3D, chair_show2D, human_show2D, human_show3D 
 from layers.PriorConsistencyCriterion import compute_rotation_loss
 import os
 import copy
@@ -114,7 +114,7 @@ def compute_images3D(img, pred, gt, index):
 
 
 
-def train_step(args, split, epoch, loader, model, loss, update_bn=True, logger=None, optimizer = None, M = None, f = None, nViews=ref.nViews,device='cuda', threshold = 0.9):
+def train_step(args, split, epoch, loader, model, loss, update_bn=True, logger=None, optimizer = None, M = None, f = None, nViews=ref.nViews,device='cuda', threshold = 0.9, unnorm_net=(lambda pose:pose), unnorm_tgt=(lambda pose:pose)):
   prior_loss = []
 
   if update_bn>0:
@@ -126,18 +126,18 @@ def train_step(args, split, epoch, loader, model, loss, update_bn=True, logger=N
 
   idx_0 = len(loader)*epoch
 
-  
-  for i, (input, _, _) in enumerate(loader):
+  loss.epoch = epoch
+  for i, (input, target, _) in enumerate(loader):
     input_var = input.to(device)
+    target_var = target.to(device)
     output = model(input_var)
-
-    cr_loss = loss(output)
-    print(cr_loss.item())
+    
+    cr_loss = loss(unnorm_net(output), dt=unnorm_tgt(target_var))
     if torch.isnan(output).sum() > 0:
         print('OUTPUT WITH NANS DURING TRAINING %d' % i)
         return
     cr_loss = (cr_loss).mean()
-
+    #print(cr_loss.item())
 
     #rotation_loss = compute_rotation_loss(old_output.view(input.shape[0],10,3), output.view(input.shape[0],10,3), w)
 
@@ -152,64 +152,79 @@ def train_step(args, split, epoch, loader, model, loss, update_bn=True, logger=N
   return np.array(prior_loss).mean()
 
 
-def eval_step(args, split, epoch, loader, model, loss, update=True, optimizer = None, M = None, f = None, nViews=ref.nViews, plot_img = False, logger = None,device='cuda'):
+def eval_step(args, ds_split, epoch, loader, model, loss, update=True, optimizer = None, M = None, f = None, nViews=ref.nViews, plot_img = False, logger = None,device='cuda', unnorm_net=(lambda pose:pose), unnorm_tgt=(lambda pose:pose)):
   prior_loss = []
   regr_loss = []
   accuracy_this = []
   accuracy_shape = []
 
   model.eval()
+  if update:
+    print('Updating BN layers')
+    model.train()
+  draw_2d = chair_show2D if ref.category == 'Chair' else human_show2D
+  draw_3d = chair_show3D if ref.category == 'Chair' else human_show3D
 
   for i, (input, target, meta) in enumerate(loader):
-    input_var = input.to(device)
+    input_var = input.to(device).detach()
     target_var = target.to(device)
-    output = model(input_var)
-    if torch.isnan(input_var).sum() > 0:
-        print('INPUT WITH NANS')
+    output = model(input_var).detach()
+    unnormed_prediction = unnorm_net(output.view(input.shape[0], ref.J, 3))
+    unnormed_gt = unnorm_tgt(target_var)
     if torch.isnan(output).sum() > 0:
         print('OUTPUT WITH NANS')
     cr_regr_loss = ((output - target_var.view(target_var.shape[0],-1)) ** 2).sum() / ref.J / 3 / input.shape[0]
-
-    current_acc = accuracy(output.data, target, meta)
-    current_acc_shape = accuracy_dis(output.data, target, meta)
+    current_acc = accuracy(unnormed_prediction.view(target_var.shape[0], -1).data, unnormed_gt.data, meta)
+    current_acc_shape = accuracy_dis(unnormed_prediction.view(target_var.shape[0], -1).data, unnormed_gt.data, meta)
     accuracy_this.append(current_acc.item())
     accuracy_shape.append(current_acc_shape.item())
     
     regr_loss.append(cr_regr_loss.item())
-    cr_loss = loss(output).mean()
+    cr_loss = loss(output, dt=target_var).mean()
     numpy_img = None
-    if plot_img:
-          numpy_img = (input.numpy()[0] * 255).transpose(1, 2, 0).astype(np.uint8)
+    #if plot_img:
+          #numpy_img = (input.numpy()[0] * 255).transpose(1, 2, 0).astype(np.uint8)
     if plot_img and i<10:
-          pred = output.data.cpu().numpy()[0].copy()
-          gt = target.data.cpu().numpy()[0].copy()
-          numpy_img = chair_show2D(numpy_img, pred, (255,0,0))
-          numpy_img = chair_show2D(numpy_img, gt, (0,0,255))
-          filename_2d = os.path.join(args.save_path, 'img2d_%s_%d_%d.png' % (args.expID, i, epoch))
-          cv2.imwrite(filename_2d, numpy_img)
+          pred = unnormed_prediction.data.cpu().numpy()[0].copy()
+          gt = unnormed_gt.data.cpu().numpy()[0].copy()
+          #numpy_img = chair_show2D(numpy_img, pred, (255,0,0))
+          #numpy_img = chair_show2D(numpy_img, gt, (0,0,255))
+          #filename_2d = os.path.join(args.save_path, 'img2d_%s_%d_%d.png' % (args.expID, i, epoch))
+          #cv2.imwrite(filename_2d, numpy_img)
           fig = plt.figure()
           ax = fig.add_subplot((111), projection='3d')
-          chair_show3D(ax, pred, 'r')
-          chair_show3D(ax, gt, 'b')
+          draw_3d(ax, pred, 'r')
+          draw_3d(ax, gt, 'b')
           #TODO: make it directly to numpy to avoid disk IO
           filename_3d = os.path.join(args.save_path, 'img3d_%s_%d_%d.png' % (args.expID, i, epoch))
           plt.savefig(filename_3d)
           logger.add_image('Image 3D ' + str(i), (np.asarray(Image.open(filename_3d))).transpose(2,0,1), epoch)
-          logger.add_image('Image 2D ' + str(i), (np.asarray(Image.open(filename_2d))).transpose(2,0,1), epoch)
+          #logger.add_image('Image 2D ' + str(i), (np.asarray(Image.open(filename_2d))).transpose(2,0,1), epoch)
           plt.close()
 
     prior_loss.append(cr_loss.item())
+  
+ 
+  accuracy_mean = np.array(accuracy_this).mean()
+  accuracy_shape_mean = np.array(accuracy_shape).mean()
+  regr_loss_mean =  np.array(regr_loss).mean()
+  prior_loss_mean =  np.array(prior_loss).mean()
 
-  return np.array(accuracy_this).mean(),np.array(accuracy_shape).mean(), np.array(regr_loss).mean(), np.array(prior_loss).mean()
+  if 'val' in ds_split:
+          #valSource_mpjpe, valSource_shape,  valSource_loss, valSource_unSuploss 
+          tag = ds_split.split('/')[-1]
+          logger.add_scalar('val/' + tag + '-accuracy', accuracy_mean, epoch)
+          logger.add_scalar('val/' + tag + '-accuracy-shape', accuracy_shape_mean, epoch)
+          logger.add_scalar('val/' + tag + '-regr-loss', regr_loss_mean, epoch)
+          logger.add_scalar('val/' + tag + '-prior-loss', prior_loss_mean, epoch)
+ 
+  return accuracy_mean, accuracy_shape_mean, regr_loss_mean, prior_loss_mean
 
+def train_priors(args, train_loader, model, loss, update_bn, logger, optimizer, epoch, nViews=ref.nViews, threshold = 0.9, unnorm_net=(lambda pose:pose), unnorm_tgt=(lambda pose:pose)):
+  return train_step(args, 'train', epoch, train_loader[0], model, loss, update_bn, logger, optimizer, threshold=threshold, unnorm_net=(lambda pose:pose), unnorm_tgt=(lambda pose:pose))
 
-
-
-def train_priors(args, train_loader, model, loss, update_bn, logger, optimizer, epoch, nViews=ref.nViews, threshold = 0.9):
-  return train_step(args, 'train', epoch, train_loader[0], model, loss, update_bn, logger, optimizer, threshold=threshold)
-
-def validate_priors(args, supTag, val_loader, model, loss, epoch,plot_img=False, logger=None):
-  return eval_step(args, 'val' + supTag, epoch, val_loader, model,loss,plot_img = plot_img, logger = logger)
+def validate_priors(args, supTag, val_loader, model, loss, epoch, update = False, plot_img=False, logger=None, unnorm_net=(lambda pose:pose), unnorm_tgt=(lambda pose:pose)):
+  return eval_step(args, 'val' + supTag, epoch, val_loader, model,loss,plot_img = plot_img, update=update, logger = logger, unnorm_net=unnorm_net, unnorm_tgt=unnorm_tgt)
 
 def test(args, loader, model, loss,plot_img=False, logger=None):
   return eval_step(args, 'test', 0, loader, model, loss,plot_img = plot_img, logger = logger)
