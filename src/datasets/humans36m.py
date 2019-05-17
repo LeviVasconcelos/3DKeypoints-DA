@@ -13,8 +13,9 @@ import torch
 import torch.utils.data as data
 import h5py
 
+from tqdm import tqdm
 import ref
-
+import pickle
 from h36m_metadata import H36M_Metadata
 
 def _draw_annot_from_file(img, bbox, pose):
@@ -50,7 +51,8 @@ def Humans36mDepthTargetDataset(split, nViews, nImages=2000, normalized=True):
 
 
 class Humans36mDataset(data.Dataset):
-      def __init__(self, nViews, split='train', rgb=True, nPerSubject=2000, subjects = [0], meta_val=1, normalized=True):
+      def __init__(self, nViews, split='train', rgb=True, 
+                    nPerSubject=2000, subjects = [0], meta_val=1, normalized=True):
             self.normalized = normalized
             self.root_dir = ref.Humans_dir
             self.rgb = rgb
@@ -76,12 +78,53 @@ class Humans36mDataset(data.Dataset):
             self.kCameras = [str(x) for x in self.metadata.camera_ids]
             self.kMaxViews = len(self.kCameras)
             self.kAnnotationsFilename = 'annot.h5'
-            self._build_indexes()
-            self._build_access_index()
-            self._build_meta()
+            if not self._load_dataindex():
+                print('building dataset')
+                self._build_indexes()
+                self._build_access_index()
+                self._build_meta()
+                self._save_dataindex()
+            else:
+                print('dataset loaded from cache')
             self._normalization = self._normalize_pose if self.normalized else (lambda a : a)
-            print('**Dataset Loaded: split [%s], len[%d], views[%d], rgb[%s]' % (self.split, self.len, self.nViews, 'True' if self.rgb else 'False'))
+            print('**Dataset Loaded: split [%s], len[%d], views[%d], rgb[%s]' % 
+                  (self.split, self.len, self.nViews, 'True' if self.rgb else 'False'))
       
+      def _generate_instance_filename(self):
+            str_kps = ['%d' % i for i in self.kp_to_use.tolist()]
+            filename = 'Humans' + ('RGB' if self.rgb else 'Depth') + '_' + \
+                       '-'.join(str_kps) + '_subjescts_' + \
+                       '-'.join(self.subjects_to_include.tolist()) + '_split_' + self.split + \
+                       '_nPerSubject_' + str(self.imagesPerSubject) + '.pkl'
+            return filename
+
+      def _load_dataindex(self):
+            filename = os.path.join(self.root_dir, 'cache', self._generate_instance_filename())
+            if not os.path.isfile(filename):
+                return False
+            print('loading dataset, from cache...')
+            try:
+                with open(filename, 'rb') as dataset_pickle_file: 
+                    self.dataset_indexes = pickle.load(dataset_pickle_file)
+                    self.access_order = pickle.load(dataset_pickle_file)
+                    self.meta = pickle.load(dataset_pickle_file)
+                    self.poses_mean, self.poses_std = pickle.load(dataset_pickle_file)
+                    self.len = len(self.access_order)
+                    self.nImages = self.len * self.nViews
+                    return True
+            except EOFError as e:
+                return False
+            return False
+
+      def _save_dataindex(self):
+            filename = os.path.join(self.root_dir, 'cache', self._generate_instance_filename())
+            with open(filename, 'wb') as dataset_pickle_file: 
+                  pickle.dump(self.dataset_indexes, dataset_pickle_file) # dataset indexes
+                  pickle.dump(self.access_order, dataset_pickle_file) # access_order
+                  pickle.dump(self.meta, dataset_pickle_file) # meta
+                  pickle.dump([self.poses_mean, self.poses_std], dataset_pickle_file) # mean, std
+            print('Dataset Saved')
+                  
       def _build_meta(self):
             self.meta = np.zeros((self.len, self.kMaxViews, ref.metaDim))
             for i in range(self.len):
@@ -95,7 +138,8 @@ class Humans36mDataset(data.Dataset):
                         self.meta[i, j, 3:5] = np.zeros((2), dtype=np.float32) / 180. * np.arccos(-1)
       
       def _process_subaction(self, subject, action, subaction):
-            folder = os.path.join(self.root_dir, subject, self.metadata.action_names[action] + '-' + subaction)
+            folder = os.path.join(self.root_dir, subject, self.metadata.action_names[action] + \
+                                   '-' + subaction)
             rgb_cameras_folder = os.path.join(folder, self.kFolders['rgb_cameras'])
             tof_folder = os.path.join(folder, self.kFolders['tof_data'])
             
@@ -108,22 +152,24 @@ class Humans36mDataset(data.Dataset):
             with h5py.File(annot_file, 'r') as file:
                   frames = file['frame']
                   unique_frames = np.unique(frames)
-                  pose3d_norm = file['pose/3d-norm'].value
-                  bbox = file['bbox'].value
-                  pose2d = file['pose/2d'].value
+                  #pose3d_norm = file['pose/3d-norm'].value
+                  #hbox = file['bbox'].value
+                  #pose2d = file['pose/2d'].value
                   cameras = file['camera'].value
                   pose3d = file['pose/3d'].value
+                  pose3d_uncentred = file['pose/3d'].value
                   # Normalization by the pelvis
                   pose3d = pose3d - pose3d[:, 0].reshape(pose3d.shape[0], 1, pose3d.shape[2])
-                  pose3d_univ = file['pose/3d-univ'].value
-                  pose3d_original = file['pose/3d-original'].value
+                  #pose3d_univ = file['pose/3d-univ'].value
+                  #pose3d_original = file['pose/3d-original'].value
                   intrinsic = file['intrinsics']
-                  instrinsic_univ = file['intrinsics-univ']
+                  #instrinsic_univ = file['intrinsics-univ']
                   index = [{'Views': [], 
                             'Annot': {
                                         'bbox': [], 
                                         '2d': [], 
                                         '3d':[], 
+                                        '3d_uncentred': [],
                                         'intrinsic':[], 
                                         'instrinsic-univ':[],
                                         '3d-univ' : [],
@@ -139,16 +185,18 @@ class Humans36mDataset(data.Dataset):
                               filename = 'img_%06d.jpg' % f
                               tof_filename = 'tof_range%06d.jpg' % f
                               index[k]['Views'] += [os.path.join(rgb_folder, filename)]
-                              index[k]['Annot']['bbox'] += [bbox[i]]
-                              index[k]['Annot']['2d'] += [pose2d[i]]
                               index[k]['Annot']['3d'] += [pose3d[i][self.kp_to_use]]
-                              index[k]['Annot']['3d-univ'] += [pose3d_univ[i]]
-                              #cam = intrinsic[str(cameras[i])].value
-                              index[k]['Annot']['intrinsic'] += [intrinsic[str(cameras[i])].value]
-                              index[k]['Annot']['instrinsic-univ'] = [instrinsic_univ[str(cameras[i])].value]
-                              index[k]['Annot']['3d-orignial'] += [pose3d_original[i]]
+                              index[k]['Annot']['3d_uncentred'] += [pose3d_uncentred[i][self.kp_to_use]]
                               if len(index[k]['TOF']) == 0:
                                     index[k]['TOF'] = [os.path.join(tof_folder, tof_filename)]
+                              #index[k]['Annot']['bbox'] += [bbox[i]]
+                              #index[k]['Annot']['2d'] += [pose2d[i]]
+                              #index[k]['Annot']['3d-univ'] += [pose3d_univ[i]]
+                              #cam = intrinsic[str(cameras[i])].value
+                              index[k]['Annot']['intrinsic'] += [intrinsic[str(cameras[i])].value]
+                              
+                              #index[k]['Annot']['instrinsic-univ'] = [instrinsic_univ[str(cameras[i])].value]
+                              #index[k]['Annot']['3d-orignial'] += [pose3d_original[i]]
                   except IndexError as e:
                         print(e)
             return index, pose3d[:, self.kp_to_use]
@@ -163,18 +211,20 @@ class Humans36mDataset(data.Dataset):
                               (subject, action, subaction) 
                               for action, subaction in self.metadata.sequence_mappings[subject].keys() 
                               if int(action) > 1 and 
-                              action not in ['54138969', '55011271', '58860488', '60457274']  # Exclude '_ALL' and Cameras
+                              action not in ['54138969', '55011271', '58860488', '60457274']  # Exclude '_ALL' 
+                              #                                                                    and Cameras
                               ]
             #print(subactions)
             last_subject, _, _ = subactions[0]
-            for subject, action, subaction in subactions:
+            for subject, action, subaction in tqdm(subactions):
                   if (subject, action, subaction) in self.kBlacklist:
                         continue
                   if last_subject != subject:
                         last_subject = subject
                         self.subject_max_idx += [len(self.dataset_indexes)]
                   indexes, poses = self._process_subaction(subject, action, subaction)
-                  self.all_poses = poses if len(self.all_poses) == 0 else np.concatenate((self.all_poses, poses))
+                  self.all_poses = (poses if len(self.all_poses) == 0 \
+                                     else np.concatenate((self.all_poses, poses)))
                   self.dataset_indexes += indexes
             #print('Subject max idxes: ', self.subject_max_idx)
             self.subject_max_idx += [len(self.dataset_indexes)]
@@ -190,7 +240,8 @@ class Humans36mDataset(data.Dataset):
             return (pose - self.poses_mean) / (self.poses_std + 1e-7)
       
       def _unnormalize_pose(self, pose):
-	      return pose *  (torch.from_numpy(self.poses_std).float().to('cuda').unsqueeze(0) + 1e-7) + torch.tensor(self.poses_mean).float().to('cuda').unsqueeze(0)
+	      return pose *  (torch.from_numpy(self.poses_std).float().to('cuda').unsqueeze(0) + 1e-7) + \
+                              torch.tensor(self.poses_mean).float().to('cuda').unsqueeze(0)
       
       def _build_access_index(self):
             self.access_order = []
@@ -198,7 +249,8 @@ class Humans36mDataset(data.Dataset):
             for i in self.subject_max_idx:
                   #print('building: ', last_subject, i)
                   to_use_images = np.arange(last_subject,i,1)[:self.imagesPerSubject]
-                  #self.access_order += np.random.permutation(np.arange(last_subject,i,1))[:self.imagesPerSubject].tolist()
+                  #self.access_order += np.random.permutation(np.arange(last_subject,i,1))
+                  #                                            [:self.imagesPerSubject].tolist()
                   self.access_order += np.random.permutation(to_use_images).tolist()
                   last_subject = i
             np.random.shuffle(self.access_order)
@@ -218,7 +270,8 @@ class Humans36mDataset(data.Dataset):
                   filename = self._get_ref(idx)[image_type][view]
                   #print('filename ', filename, ' view: ', view)
             except IndexError:
-                  print('trying to access: ' + str(self.access_order[idx]) + ' out of: ' + str(self.len) + ' || ' + str(len(self.dataset_indexes)))
+                  print('trying to access: ' + str(self.access_order[idx]) + 
+                         ' out of: ' + str(self.len) + ' || ' + str(len(self.dataset_indexes)))
                   print(idx, self.access_order[idx], 'view: ', view)
                   #print('filename: ', filename)
             return cv2.imread(filename)
@@ -231,6 +284,7 @@ class Humans36mDataset(data.Dataset):
             #print(idx, self.access_order[idx])
             imgs = np.zeros((self.nViews, 224, 224, 3), dtype=np.float32)
             annots = np.zeros((self.nViews, self.K, 3), dtype=np.float32)
+            uncentred_3d = np.zeros((self.nViews, self.K, 3), dtype=np.float32)
             mono_pose3d =  np.zeros((self.nViews, self.K, 3), dtype=np.float32)
             univ_pose3d = np.zeros((self.nViews, self.K, 3), dtype=np.float32)
             orig_pose3d = np.zeros((self.nViews, self.K, 3), dtype=np.float32)
@@ -242,6 +296,7 @@ class Humans36mDataset(data.Dataset):
                   imgs[k] = self._load_image(idx, k).astype(np.float32)
                   if self.rgb:
                        annots[k] = self._normalization(self._get_ref(idx)['Annot']['3d'][k].copy())
+                       uncentred_3d[k] = self._get_ref(idx)['Annot']['3d_uncentred'][k].copy()
                        #annots[k] = self._get_ref(idx)['Annot']['3d'][k].copy()
                   else:
                        annots[k] = self._normalization(self._get_ref(idx)['Annot']['3d'][1].copy())
@@ -251,11 +306,11 @@ class Humans36mDataset(data.Dataset):
                   #univ_pose3d[k] = self._get_ref(idx)['Annot']['3d-univ'][k].copy()
                   #orig_pose3d[k] = self._get_ref(idx)['Annot']['3d-orignial'][k].copy()
                   #pose_2d += [self._get_ref(idx)['Annot']['2d'][k].copy()]
-                  #intrinsics += [self._get_ref(idx)['Annot']['intrinsic'][k].copy()]
+                  intrinsics += [self._get_ref(idx)['Annot']['intrinsic'][k].copy()]
                   meta[k] = self.meta[idx, k]
             imgs = imgs.transpose(0, 3, 1, 2) / 255.
             inp = torch.from_numpy(imgs)
-            return inp, annots, meta #, mono_pose3d, univ_pose3d, orig_pose3d, intrinsics, pose_2d
+            return inp, annots, meta, uncentred_3d, intrinsics #, mono_pose3d, univ_pose3d, orig_pose3d, intrinsics, pose_2d
       
       def __len__(self):
             return self.len

@@ -130,7 +130,7 @@ def train_step(args, split, epoch, loader, model, loss, update_bn=True,
   idx_0 = len(loader)*epoch
 
   loss.epoch = epoch
-  for i, (input, target, _) in enumerate(loader):
+  for i, (input, target, _, _, _) in enumerate(loader):
     input_var = input.to(device)
     target_var = target.to(device)
     output = model(input_var)
@@ -140,7 +140,7 @@ def train_step(args, split, epoch, loader, model, loss, update_bn=True,
     if torch.isnan(output).sum() > 0:
         print('OUTPUT WITH NANS DURING TRAINING %d' % i)
         return
-    cr_loss = (cr_loss).mean()
+    cr_loss = (cr_loss).sum()
     #print(cr_loss.item())
 
     #rotation_loss = compute_rotation_loss(old_output.view(input.shape[0],10,3), output.view(input.shape[0],10,3), w)
@@ -169,7 +169,7 @@ def eval_step(args, ds_split, epoch, loader, model, loss, update=True, optimizer
   draw_2d = chair_show2D if ref.category == 'Chair' else human_show2D
   draw_3d = chair_show3D if ref.category == 'Chair' else human_show3D
 
-  for i, (input, target, meta) in enumerate(loader):
+  for i, (input, target, meta, uncentred, intrinsics) in enumerate(loader):
     input_var = input.to(device).detach()
     target_var = target.to(device)
     output = model(input_var).detach()
@@ -185,6 +185,9 @@ def eval_step(args, ds_split, epoch, loader, model, loss, update=True, optimizer
     
     regr_loss.append(cr_regr_loss.item())
     cr_loss = loss(output, dt=target_var).mean()
+    loss_value = cr_loss.item()
+    if loss_value != loss_value:
+         print('NaN at batch: ', i)  
     numpy_img = None
     #if plot_img:
           #numpy_img = (input.numpy()[0] * 255).transpose(1, 2, 0).astype(np.uint8)
@@ -204,7 +207,12 @@ def eval_step(args, ds_split, epoch, loader, model, loss, update=True, optimizer
           plt.savefig(filename_3d)
           logger.add_image('Image 3D ' + str(i), (np.asarray(Image.open(filename_3d))).transpose(2,0,1), epoch)
           #logger.add_image('Image 2D ' + str(i), (np.asarray(Image.open(filename_2d))).transpose(2,0,1), epoch)
+          projs = [x.numpy() for x in intrinsics]
           plt.close()
+          #np.save('images_ep_%d_step_%d.npy', input_var.cpu().numpy())
+          #np.save('gt_%d_step_%d.npy', unnormed_gt.cpu().numpy())
+          #np.save('unnormed_predictions_%d_step_%d.npy', unnormed_prediction.cpu().numpy())
+          #np.save('intrinsics_%d_step_%d.npy', np.asarray(projs))
 
     prior_loss.append(cr_loss.item())
   

@@ -272,13 +272,17 @@ class PriorSMACOFCriterion(AbstractPriorLoss):
             reconstructed_mean_kps = self.iterate(prediction, reconstructed_mean_dists, 
                                                    torch.ones_like(gt_dists), iters=iters)
             
-            np.save(os.path.join(self.debug_folder,'batch_%d_reconstructed_%d_iters_%d' % (self.debug_counter, self.epoch, iters)), 
+            np.save(os.path.join(self.debug_folder,'batch_%d_reconstructed_%d_iters_%d' % 
+                                  (self.debug_counter, self.epoch, iters)), 
                                   reconstructed_kps.detach().cpu().numpy())
-            np.save(os.path.join(self.debug_folder,'batch_%d_reconstructed_mean_%d_iters_%d' % (self.debug_counter, self.epoch, iters)), 
+            np.save(os.path.join(self.debug_folder,'batch_%d_reconstructed_mean_%d_iters_%d' % 
+                                  (self.debug_counter, self.epoch, iters)), 
                                   reconstructed_mean_kps.detach().cpu().numpy())
-            np.save(os.path.join(self.debug_folder,'batch_%d_predictions_%d' % (self.debug_counter, self.epoch)), 
+            np.save(os.path.join(self.debug_folder,'batch_%d_predictions_%d' % 
+                                  (self.debug_counter, self.epoch)), 
                                   prediction.detach().cpu().numpy())
-            np.save(os.path.join(self.debug_folder,'batch_%d_ground_truth_%d' % (self.debug_counter, self.epoch)), 
+            np.save(os.path.join(self.debug_folder,'batch_%d_ground_truth_%d' % 
+                                  (self.debug_counter, self.epoch)), 
                                   dt.detach().cpu().numpy())
         else:
             self.last_epoch = self.epoch
@@ -327,9 +331,18 @@ class PriorSMACOFCriterion(AbstractPriorLoss):
     #	print(props[0])
     # 	print()
     #	exit(1)
-    error = self.compute_obj(prediction, gt_dists, w)/self.J
+    smacof_kps = self.iterate(prediction, gt_dists, w, iters=100)
+    #diff_pred_gt = l2(prediction - dt).detach()
+    #diff_reconstructed_gt = l2(smacof_kps - dt).detach()
+    #mask_reliables = (diff_pred_gt > diff_reconstructed_gt).float() 
+    
+    #error = l2(prediction - dt)#*mask_reliables / (mask_reliables.sum() + 1e-7)
+    error = l2(prediction - smacof_kps)#*mask_reliables / (mask_reliables.sum() + 1e-7)
+    #if (prediction.shape[0] > 4):
+    #    print('loss: ', error)
+    #error = self.compute_obj(prediction, gt_dists, w)/self.J
     #mask_error = (gt_dists.mean(-1).mean(-1)<2.0).float()
-    return error#*torch.exp(-error)#mask_error
+    return error/error.shape[0]#*torch.exp(-error)#mask_error
 
 
 
@@ -377,6 +390,9 @@ class PriorSMACOFCriterion(AbstractPriorLoss):
         x.permute(0,2,1)
         for i in range(iters):
               d = compute_distances(X, eps=self.eps)
+              #if (torch.isnan(d).sum() > 0):
+              #      print('NaNs from iterate')
+              #      np.save('nan_iterate_sample.npy',x.cpu().numpy())
               B = self.compute_B(x,d,w,delta)
               if use_w:
                     V = self.compute_V(x,w) ##### TODO
@@ -436,10 +452,16 @@ def get_priors_from_file(path, device='cuda', eps=10**(-6)):
 
 def load_priors_from_file(root_folder, device='cuda', eps=10**(-6)):
       #ModelNet_MeanDists.npy  ModelNet_MeanProp.npy  ModelNet_StdDists.npy  ModelNet_StdProp.npy
-      kMeanDistsFilename = 'HumansRGB_MeanDists.npy'
-      kStdDistsFilename = 'HumansRGB_StdDists.npy'
-      kMeanFilename = 'HumansRGB_MeanProp.npy'
-      kStdFilename = 'HumansRGB_StdProp.npy'
+      #kMeanDistsFilename = 'HumansRGB_MeanDists.npy'
+      #kStdDistsFilename = 'HumansRGB_StdDists.npy'
+      #kMeanFilename = 'HumansRGB_MeanProp.npy'
+      #kStdFilename = 'HumansRGB_StdProp.npy'
+      kMeanDistsFilename = 'HumansDepth_MeanDists.npy'
+      kStdDistsFilename = 'HumansDepth_StdDists.npy'
+      kMeanFilename = 'HumansDepth_MeanProp.npy'
+      kStdFilename = 'HumansDepth_StdProp.npy'
+
+
       dist_mean = torch.from_numpy(np.load(os.path.join(root_folder, kMeanDistsFilename))).float()
       dist_std = torch.from_numpy(np.load(os.path.join(root_folder, kStdDistsFilename))).float()
       prop_mean = torch.from_numpy(np.load(os.path.join(root_folder, kMeanFilename))).float()

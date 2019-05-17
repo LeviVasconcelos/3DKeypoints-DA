@@ -13,14 +13,10 @@ def compute_distances(x, eps=10**(-6)):
     	x=x.unsqueeze(0)
     if (torch.isnan(x).sum() > 0):
         print('X ALREADY WITH NANS TO COMPUTE DISTS')
-
     # Computes the squared norm of X
     x_squared=x.norm(p=2,dim=2).pow(2) # B x K
-
-    
     x_squared_left = x_squared.unsqueeze(-1) # B x K x 1
     x_squared_right = x_squared.unsqueeze(1) # B x 1 x K
-
     x_transposed = x.permute(0,2,1) # B x K x D
     xxT = torch.bmm(x,x_transposed)
     dists = x_squared_left + x_squared_right - 2*xxT  +eps

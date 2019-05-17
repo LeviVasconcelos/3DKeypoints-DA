@@ -13,7 +13,7 @@ class Fusion(data.Dataset):
       self.targetDataset = TargetDataset('train', nViews, totalTargetIm)
     else:
       self.sourceDataset = SourceDataset('train', nViews)
-      self.targetDataset = TargetDataset('train', nViews)
+      self.targetDataset = TargetDataset('test', nViews, nImages=375)
     self.nSourceImages = len(self.sourceDataset)
     self.nTargetImages = int(self.nSourceImages * self.targetRatio)
 

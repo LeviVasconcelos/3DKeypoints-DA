@@ -96,8 +96,8 @@ def main():
       source_valViews = ref.nValViews if args.sourceDataset != 'HumansDepth' else 1
       target_valViews = ref.nValViews if args.targetDataset != 'HumansDepth' else 1
 
-      valSource_dataset = SourceDataset('test', source_valViews)
-      valTarget_dataset = TargetDataset('test', target_valViews)
+      valSource_dataset = SourceDataset('test', source_valViews, nImages=375)
+      valTarget_dataset = TargetDataset('test', target_valViews, nImages=375)
       valSource_loader = torch.utils.data.DataLoader(valSource_dataset, batch_size = 1, 
                         shuffle=False, num_workers=1, pin_memory=True, collate_fn=collate_fn_cat)
       valTarget_loader = torch.utils.data.DataLoader(valTarget_dataset, batch_size = 1, 
@@ -164,6 +164,7 @@ def main():
       unnorm_train_tgt = lambda_identity
       if ref.category == 'Human':
           unnorm_net = trainSource_dataset._unnormalize_pose
+          #unnorm_net = valTarget_dataset._unnormalize_pose
           unnorm_val_src = valTarget_dataset._unnormalize_pose
           unnorm_val_tgt = valSource_dataset._unnormalize_pose
           if args.unnormalized:
@@ -173,14 +174,14 @@ def main():
       print('unnorm_train_net is identity: ', unnorm_train_net == lambda_identity)
       print('unnorm_train_tgt is identity: ', unnorm_train_tgt == lambda_identity)
 
-
-
       if not args.shapeConsistency and not args.sourceOnly:
+            print('Initial validation on source')
             validate_priors(args, 'val/Source', valSource_loader, 
                              model, prior_loss, 0,
                              logger=logger, 
                              unnorm_net=unnorm_net, 
                              unnorm_tgt=unnorm_val_tgt)
+            print('initial validation on target')
             validate_priors(args, 'val/Target', valTarget_loader, 
                              model, prior_loss, 0, plot_img=True, 
                              logger=logger, 
