@@ -235,7 +235,8 @@ def main():
                             AVG = args.AVG, dial=DIAL)
       print 'Start training...'
       for epoch in range(1, args.epochs + 1):
-            adjust_learning_rate(optimizer, epoch, args.dropLR)
+            source_regr_loss = adjust_learning_rate(optimizer, epoch, args.dropLR)
+            logger.add_scalar('val/source_regr', source_regr_loss, epoch)
             if args.sourceOnly:
                   train_source_only(args, trainSource_loader, model, optimizer, epoch)
                   if epoch % 4 == 0:
