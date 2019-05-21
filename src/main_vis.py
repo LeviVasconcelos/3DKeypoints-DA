@@ -209,6 +209,8 @@ def main():
                       unnorm_net=unnorm_net, 
                       unnorm_tgt=unnorm_val_src)
       else:
+            mean, std = valTarget_dataset._get_normalization_statistics()
+            net_mean, net_std = train_dataset.sourceDataset._get_normalization_statistics()
             eval_source_only(args, 'val/Source', valSource_loader, model, 
                               0, plot_img=True, logger=logger, 
                               statistics=(mean, std), 
@@ -235,10 +237,11 @@ def main():
                             AVG = args.AVG, dial=DIAL)
       print 'Start training...'
       for epoch in range(1, args.epochs + 1):
-            source_regr_loss = adjust_learning_rate(optimizer, epoch, args.dropLR)
-            logger.add_scalar('val/source_regr', source_regr_loss, epoch)
+            adjust_learning_rate(optimizer, epoch, args.dropLR)
+            
             if args.sourceOnly:
-                  train_source_only(args, trainSource_loader, model, optimizer, epoch)
+                  source_regr_loss = train_source_only(args, trainSource_loader, model, optimizer, epoch)
+                  logger.add_scalar('val/source_regr', source_regr_loss, epoch)
                   if epoch % 4 == 0:
                         mean, std = valTarget_dataset._get_normalization_statistics()
                         net_mean, net_std = train_dataset.sourceDataset._get_normalization_statistics()

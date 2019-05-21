@@ -2,7 +2,7 @@
 import torch
 import numpy as np
 from utils.utils import AverageMeter
-from utils.visualization import chair_show3D, chair_show2D, human_show2D, human_show3D
+from utils.visualization import chair_show3D, chair_show2D, human_show2D, human_show3D, human_from_3D
 from utils.eval import accuracy, shapeConsistency, accuracy_dis
 import matplotlib as mpl
 mpl.use('Agg')
@@ -29,7 +29,7 @@ def source_only_train_step(args, epoch, loader, model, optimizer = None, device 
       accumulate_loss = 0.
       count_loss = 0.
       L1_crit = torch.nn.L1Loss()
-      for i, (input, target, meta) in enumerate(loader):
+      for i, (input, target, meta, _, _) in enumerate(loader):
             input_var = input.to(device)
             target_var = target.to(device)
             output = model(input_var)
@@ -66,7 +66,7 @@ def source_only_eval(args, ds_split, epoch, loader, model, plot_img = False, log
       net_mean = torch.from_numpy(net_mean).float().to(device)
       net_std = torch.from_numpy(net_std).float().to(device)
 
-      for i, (input, target, meta) in enumerate(loader):
+      for i, (input, target, meta, uncentred, intrinsics) in enumerate(loader):
             input_var = input.to(device)
             target_var = target.to(device)
             output = model(input_var)
@@ -85,16 +85,22 @@ def source_only_eval(args, ds_split, epoch, loader, model, plot_img = False, log
             if plot_img:
                   draw_2d = chair_show2D if ref.category == 'Chair' else human_show2D
                   draw_3d = chair_show3D if ref.category == 'Chair' else human_show3D
-                  #numpy_img = (input.numpy()[0] * 255).transpose(1, 2, 0).astype(np.uint8)
-                  #filename_2d = os.path.join(args.save_path, 'img2d_%s_%d_%d.png' % (args.expID, i, epoch))
+                  numpy_img = (input.numpy()[0] * 255).transpose(1, 2, 0).astype(np.uint8)
+                  filename_2d = os.path.join(args.save_path, 'img2d_%s_%d_%d.png' % (args.expID, i, epoch))
                   #cv2.imwrite(filename_2d, numpy_img)
                   if i < 10:
-                        pred = unormed_output.data.cpu().numpy()[0].copy()
-                        gt = unormed_target.data.cpu().numpy()[0].copy()
-                        #numpy_img = draw_2d(numpy_img, pred, (255,0,0))
-                        #numpy_img = draw_2d(numpy_img, gt, (0,0,255))
-                        #filename_2d = os.path.join(args.save_path, 'img2d_%s_%d_%d.png' % (args.expID, i, epoch))
-                        #cv2.imwrite(filename_2d, numpy_img)
+                        camera = 0
+                        pred = unormed_output.data[camera].cpu().numpy().copy()
+                        gt = unormed_target.data[camera].cpu().numpy().copy()
+                        gt_uncentred = uncentred.data[camera].cpu().numpy().copy()
+
+                        numpy_img = human_from_3D(numpy_img, gt_uncentred, intrinsics[camera],
+                                                   (180,0,0), 224./1000.)
+                        numpy_img = human_from_3D(numpy_img, pred - gt_uncentred[0], intrinsics[camera], 
+                                                   (0,0,180), 224./1000., flip=False)
+                        filename_2d = os.path.join(args.save_path, 'img2d_%s_%d_%d.png' % (args.expID, i, epoch))
+                        cv2.imwrite(filename_2d, numpy_img)
+
                         fig = plt.figure()
                         ax = fig.add_subplot((111), projection='3d')
                         draw_3d(ax, pred, 'r')
@@ -104,7 +110,7 @@ def source_only_eval(args, ds_split, epoch, loader, model, plot_img = False, log
                         plt.savefig(filename_3d)
                         logger.add_image('Image 3D ' + str(i), (np.asarray(Image.open(filename_3d))).transpose(2,0,1), epoch)
                         plt.close()
-                        #logger.add_image('Image 2D ' + str(i), (np.asarray(Image.open(filename_2d))).transpose(2,0,1), epoch)
+                        logger.add_image('Image 2D ' + str(i), (np.asarray(Image.open(filename_2d))).transpose(2,0,1), epoch)
       regr_loss_mean = np.array(regr_loss).mean()
       accuracy_mean = np.array(accuracy_this).mean()
       accuracy_shape_mean =  np.array(accuracy_shape).mean()
