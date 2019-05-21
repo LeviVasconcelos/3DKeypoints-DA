@@ -36,10 +36,10 @@ human_edges =[[0,1], [1,2], [2,3], #right leg
              [7,12], [12, 13], [13, 14]] #right arm 
 
 
-def human_show3D(ax, points, c = (255, 0, 0), edges = human_edges, J = ref.J):
+def human_show3D(ax, points, c = 'k', edges = human_edges, J = ref.J):
       show3D(ax, points, c, edges, J)
 
-def chair_show3D(ax, points, c = (255, 0, 0), edges = chair_edges, J = ref.J):
+def chair_show3D(ax, points, c = 'k', edges = chair_edges, J = ref.J):
       show3D(ax, points, c, edges, J)
     
 def show3D(ax, points, c = (255, 0, 0), edges = chair_edges, J = ref.J):
@@ -83,11 +83,43 @@ def chair_show2D(img, points, c, edges = chair_edges, J = ref.J):
                   (points[e[1], 0], points[e[1], 1]), c, 2)
   return img2
 
-def human_show2D(img, points, c):
-  points = points.astype(np.int32)
-  points[:, 0], points[:, 1] = points[:, 1].copy(), points[:, 0].copy()  
-  for j in range(J):
-    x = points[j, 0] if points[j, 0] > 0 else -points[j, 0]
-    y = points[j, 1] if points[j, 1] > 0 else -points[j, 1]
-    cv2.circle(img, (y, x), 3, c, -1)
-  return img
+def human_show2D(img_, points, c):
+      img = img_.copy()
+      edges = [[0,1], [1,2], [2,3], #right leg
+                 [0, 4], [4,5], [5,6], #left leg
+                 [0,7], #spine
+                 [7,8], #neck
+                 [7,9], [9,10], [10, 11], #left arm
+                 [7,12], [12, 13], [13, 14]] #right arm 
+      points = points.astype(np.int32)
+      points[:, 0], points[:, 1] = points[:, 1].copy(), points[:, 0].copy()
+      for j in range(points.shape[0]):
+        x = points[j, 0] if points[j, 0] > 0 else -points[j, 0]
+        y = points[j, 1] if points[j, 1] > 0 else -points[j, 1]
+        cv2.circle(img, (y, x), 2, c, -1)
+      for e in edges:
+        id1, id2 = e
+        cv2.line(img, (points[id1][1], points[id1][0]), (points[id2][1], points[id2][0]), c, 1)
+      return img
+
+def project_mono_2d(pose3d, proj, scale = 1):
+      x3d = np.stack([pose3d[:, 0], pose3d[:, 2]], axis=-1)
+      x_coord_2d = np.dot(x3d, proj[:2]) / pose3d[:,2] * scale
+      y3d = np.stack([pose3d[:, 1], pose3d[:, 2]], axis=-1)
+      y_coord_2d = np.dot(y3d, proj[2:]) / pose3d[:,2] * scale
+      return np.stack([x_coord_2d, y_coord_2d], axis=-1)
+
+def reflect_dim(pose_, dim = 1):
+      pose = pose_.copy()
+      for i in range(1,pose.shape[0]):
+         pose[i, dim] -= pose_[0, dim]*2
+         pose[i, dim] = abs(pose[i, dim])
+      return pose
+
+def human_from_3D(img, points_3d, projection, color = (0,0,180), scale = 1., flip=False):
+      points_2d = project_mono_2d(points_3d, projection, scale)
+      if flip:
+          points_2d = reflect_dim(points_2d)
+      return human_show2D(img, points_2d, color)
+
+

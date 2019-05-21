@@ -69,7 +69,7 @@ def extract_dists_gt(loader, nViews=ref.nViews):
   dist = []
   print('Starting prior computation')
   pbar = tqdm(len(loader))
-  for i, (_, target, _) in enumerate(loader):  
+  for i, (_, target, _, _, _) in enumerate(loader):  
     target_var = torch.autograd.Variable(target)
     #print(target_var.shape)
     for j in range(target_var.shape[0]):

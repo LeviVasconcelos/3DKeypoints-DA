@@ -24,9 +24,9 @@ elif args.targetDataset == 'RedwoodRGB':
 elif args.targetDataset == '3DCNN':
   from datasets.chairs_3DCNN import Chairs3DCNN as TargetDataset
 elif args.targetDataset == 'HumansRGB':
-  from datasets.humans36m import Humans36mRGBTargetDataset as TargetDataset
+  from datasets.humans36m import Humans36mRGBSourceDataset as TargetDataset
 elif args.targetDataset == 'HumansDepth':
-  from datasets.humans36m import Humans36mDepthTargetDataset as TargetDataset
+  from datasets.humans36m import Humans36mDepthSourceDataset as TargetDataset
 
 def main():
       print('celled....')  

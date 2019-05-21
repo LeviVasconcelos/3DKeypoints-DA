@@ -15,7 +15,7 @@ import sys
 import time
 import torch.nn as nn
 import itertools
-from utils.visualization import chair_show3D, chair_show2D, human_show2D, human_show3D 
+from utils.visualization import chair_show3D, chair_show2D, human_show2D, human_show3D, human_from_3D 
 from layers.PriorConsistencyCriterion import compute_rotation_loss
 import os
 import copy
@@ -184,20 +184,28 @@ def eval_step(args, ds_split, epoch, loader, model, loss, update=True, optimizer
     accuracy_shape.append(current_acc_shape.item())
     
     regr_loss.append(cr_regr_loss.item())
-    cr_loss = loss(output, dt=target_var).mean()
+    cr_loss = loss(output, dt=target_var).sum()
     loss_value = cr_loss.item()
     if loss_value != loss_value:
          print('NaN at batch: ', i)  
     numpy_img = None
-    #if plot_img:
-          #numpy_img = (input.numpy()[0] * 255).transpose(1, 2, 0).astype(np.uint8)
+    if plot_img:
+          numpy_img = (input.numpy()[0] * 255).transpose(1, 2, 0).astype(np.uint8)
     if plot_img and i<10:
-          pred = unnormed_prediction.data.cpu().numpy()[0].copy()
-          gt = unnormed_gt.data.cpu().numpy()[0].copy()
+          camera = 0 
+          pred = unnormed_prediction.data[camera].cpu().numpy().copy()
+          gt = unnormed_gt.data[camera].cpu().numpy().copy()
+          gt_uncentred = uncentred.data[camera].cpu().numpy().copy()
+          # 2D Image generation
           #numpy_img = chair_show2D(numpy_img, pred, (255,0,0))
           #numpy_img = chair_show2D(numpy_img, gt, (0,0,255))
-          #filename_2d = os.path.join(args.save_path, 'img2d_%s_%d_%d.png' % (args.expID, i, epoch))
-          #cv2.imwrite(filename_2d, numpy_img)
+          numpy_img = human_from_3D(numpy_img, gt_uncentred, intrinsics[camera],
+                                    (180,0,0), 224./1000.)
+          numpy_img = human_from_3D(numpy_img, pred - gt_uncentred[0], intrinsics[camera], 
+                                    (0,0,180), 224./1000., flip=True)
+          filename_2d = os.path.join(args.save_path, 'img2d_%s_%d_%d.png' % (args.expID, i, epoch))
+          cv2.imwrite(filename_2d, numpy_img)
+
           fig = plt.figure()
           ax = fig.add_subplot((111), projection='3d')
           draw_3d(ax, pred, 'r')
@@ -206,7 +214,7 @@ def eval_step(args, ds_split, epoch, loader, model, loss, update=True, optimizer
           filename_3d = os.path.join(args.save_path, 'img3d_%s_%d_%d.png' % (args.expID, i, epoch))
           plt.savefig(filename_3d)
           logger.add_image('Image 3D ' + str(i), (np.asarray(Image.open(filename_3d))).transpose(2,0,1), epoch)
-          #logger.add_image('Image 2D ' + str(i), (np.asarray(Image.open(filename_2d))).transpose(2,0,1), epoch)
+          logger.add_image('Image 2D ' + str(i), (np.asarray(Image.open(filename_2d))).transpose(2,0,1), epoch)
           projs = [x.numpy() for x in intrinsics]
           plt.close()
           #np.save('images_ep_%d_step_%d.npy', input_var.cpu().numpy())

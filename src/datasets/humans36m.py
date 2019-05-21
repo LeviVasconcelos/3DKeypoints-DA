@@ -32,22 +32,22 @@ def _draw_annot(img, pose):
             cv2.circle(img2, tuple(i), 1, (255,0,0), -1)
       return img2
 
-def Humans36mRGBSourceDataset(split, nViews, nImages=2000, normalized=True):
+def Humans36mRGBSourceDataset(split, nViews, nImages=2000, normalized=True, meta=1):
       subjects = [0, 1, 2] if split == 'train' else [5,6]
-      return Humans36mDataset(nViews, split, True, nImages, subjects, meta_val=1, normalized=normalized)
+      return Humans36mDataset(nViews, split, True, nImages, subjects, meta_val=meta, normalized=normalized)
 
-def Humans36mRGBTargetDataset(split, nViews, nImages=2000, normalized=True):
+def Humans36mRGBTargetDataset(split, nViews, nImages=2000, normalized=True, meta=5):
       subjects = [3, 4] if split == 'train' else [5,6]
-      return Humans36mDataset(nViews, split, True, nImages, subjects, meta_val=5, normalized=normalized)
+      return Humans36mDataset(nViews, split, True, nImages, subjects, meta_val=meta, normalized=normalized)
 
 
-def Humans36mDepthSourceDataset(split, nViews, nImages=2000, normalized=True):
+def Humans36mDepthSourceDataset(split, nViews, nImages=2000, normalized=True, meta=1):
       subjects = [0, 1, 2] if split == 'train' else [5,6]
-      return Humans36mDataset(1, split, False, nImages, subjects, meta_val=1, normalized=normalized)
+      return Humans36mDataset(1, split, False, nImages, subjects, meta_val=meta, normalized=normalized)
 
-def Humans36mDepthTargetDataset(split, nViews, nImages=2000, normalized=True):
+def Humans36mDepthTargetDataset(split, nViews, nImages=2000, normalized=True, meta=5):
       subjects = [3, 4] if split == 'train' else [5,6]
-      return Humans36mDataset(1, split, False, nImages, subjects, meta_val=5, normalized=normalized)
+      return Humans36mDataset(1, split, False, nImages, subjects, meta_val=meta, normalized=normalized)
 
 
 class Humans36mDataset(data.Dataset):
@@ -78,14 +78,14 @@ class Humans36mDataset(data.Dataset):
             self.kCameras = [str(x) for x in self.metadata.camera_ids]
             self.kMaxViews = len(self.kCameras)
             self.kAnnotationsFilename = 'annot.h5'
-            if not self._load_dataindex():
-                print('building dataset')
-                self._build_indexes()
-                self._build_access_index()
-                self._build_meta()
-                self._save_dataindex()
-            else:
-                print('dataset loaded from cache')
+            #if not self._load_dataindex():
+            print('building dataset')
+            self._build_indexes()
+            self._build_access_index()
+            self._build_meta()
+            self._save_dataindex()
+            #else:
+            #    print('dataset loaded from cache')
             self._normalization = self._normalize_pose if self.normalized else (lambda a : a)
             print('**Dataset Loaded: split [%s], len[%d], views[%d], rgb[%s]' % 
                   (self.split, self.len, self.nViews, 'True' if self.rgb else 'False'))
@@ -300,6 +300,7 @@ class Humans36mDataset(data.Dataset):
                        #annots[k] = self._get_ref(idx)['Annot']['3d'][k].copy()
                   else:
                        annots[k] = self._normalization(self._get_ref(idx)['Annot']['3d'][1].copy())
+                       uncentred_3d[k] = self._get_ref(idx)['Annot']['3d_uncentred'][1].copy()
                        #annots[k] = self._get_ref(idx)['Annot']['3d'][1].copy()
                   #annots[k] = self._get_ref(idx)['Annot']['3d-norm'][k].copy()
                   #mono_pose3d[k] = self._get_ref(idx)['Annot']['3d'][k].copy()
