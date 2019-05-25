@@ -13,6 +13,7 @@ class ShapeConsistencyCriterion(Function):
     self.M = M
 
   def forward(self, input, target_, meta_):
+    print('META_SHAPE: ', meta_.shape)
     target = target_.numpy()
     G = target.shape[0] / self.nViews
     points = input.detach().cpu().numpy().astype(np.float32)

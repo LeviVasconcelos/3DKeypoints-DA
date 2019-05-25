@@ -217,10 +217,10 @@ def eval_step(args, ds_split, epoch, loader, model, loss, update=True, optimizer
           logger.add_image('Image 2D ' + str(i), (np.asarray(Image.open(filename_2d))).transpose(2,0,1), epoch)
           projs = [x.numpy() for x in intrinsics]
           plt.close()
-          #np.save('images_ep_%d_step_%d.npy', input_var.cpu().numpy())
-          #np.save('gt_%d_step_%d.npy', unnormed_gt.cpu().numpy())
-          #np.save('unnormed_predictions_%d_step_%d.npy', unnormed_prediction.cpu().numpy())
-          #np.save('intrinsics_%d_step_%d.npy', np.asarray(projs))
+          np.save('tmp_data/images_ep_%d_step_%d.npy', input_var.cpu().numpy())
+          np.save('tmp_data/gt_%d_step_%d.npy', unnormed_gt.cpu().numpy())
+          np.save('tmp_data/unnormed_predictions_%d_step_%d.npy', unnormed_prediction.cpu().numpy())
+          np.save('tmp_data/intrinsics_%d_step_%d.npy', np.asarray(projs))
 
     prior_loss.append(cr_loss.item())
   

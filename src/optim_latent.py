@@ -36,7 +36,7 @@ def getYHumans(dataset):
   N = dataset.nImages
   Y_raw = np.zeros((N, ref.J, 3))
   for i in range(dataset.len):
-    _, y, _ = dataset.__getitem__(i)
+    _, y, _, _, _  = dataset.__getitem__(i)
     for k in range(dataset.nViews):
         Y_raw[(i*dataset.nViews) + k] = y[k].copy()
   return Y_raw, Y_raw
@@ -54,7 +54,7 @@ def initLatent(loader, model, Y, nViews, S, AVG = False, dial=False):
   sum_sigma2 = 0
   cnt_sigma2 = 1
   initial_latent_count = 0
-  for i, (input, target, meta) in enumerate(loader):
+  for i, (input, target, meta, _, _) in enumerate(loader):
     output = (model(input.cuda()).data).cpu().numpy()
     G = output.shape[0] / nViews
     output = output.reshape(G, nViews, ref.J, 3)
@@ -136,7 +136,7 @@ def stepLatent(loader, model, M_, Y, nViews, lamb, mu, S, call_count=-1, dial=Fa
   Mij = np.zeros((N, ref.J, 3))
   err, num = 0, 0
   latent_count = 0
-  for i, (input, target, meta) in enumerate(loader):
+  for i, (input, target, meta, _, _) in enumerate(loader):
     output = (model(input.cuda()).data).cpu().numpy()
     G = output.shape[0] / nViews
     output = output.reshape(G, nViews, ref.J, 3)

@@ -2,7 +2,7 @@
 import torch
 import numpy as np
 from utils.utils import AverageMeter
-from utils.visualization import chair_show3D, chair_show2D, human_show2D, human_show3D
+from utils.visualization import chair_show3D, chair_show2D, human_show2D, human_show3D, human_from_3D 
 from utils.eval import accuracy, shapeConsistency, accuracy_dis
 import matplotlib as mpl
 mpl.use('Agg')
@@ -13,6 +13,7 @@ import cv2
 import ref
 from progress.bar import Bar
 from layers.ShapeConsistencyCriterion import ShapeConsistencyCriterion
+from datasets.Fusion import unpack_splitted
 
 '''
 input shape:torch.Size([64, 3, 224, 224])
@@ -29,7 +30,7 @@ def source_only_train_step(args, epoch, loader, model, optimizer = None, device 
       accumulate_loss = 0.
       count_loss = 0.
       L1_crit = torch.nn.L1Loss()
-      for i, (input, target, meta) in enumerate(loader):
+      for i, (input, target, meta, _, _) in enumerate(loader):
             input_var = input.to(device)
             target_var = target.to(device)
             output = model(input_var)
@@ -66,7 +67,7 @@ def source_only_eval(args, ds_split, epoch, loader, model, plot_img = False, log
       net_mean = torch.from_numpy(net_mean).float().to(device)
       net_std = torch.from_numpy(net_std).float().to(device)
 
-      for i, (input, target, meta) in enumerate(loader):
+      for i, (input, target, meta, _, _) in enumerate(loader):
             input_var = input.to(device)
             target_var = target.to(device)
             output = model(input_var)
@@ -131,19 +132,46 @@ def step(args, ds_split, epoch, loader, model, optimizer = None, M = None, f = N
     print 'dial activated (from train function)'
     model.eval()
   numpy_imgs = None
-  for i, (input, target, meta) in enumerate(loader):
+  for i, (input, target, meta, uncentred, intrinsics) in enumerate(loader):
     if __DEBUG:
       print "input shape:" + str(input.size())
       print "target shape:" + str(target.size())
       print "meta shape:" + str(meta.size())
     
-    input_var = input.cuda()
-    target_var = target
-    output = model(input_var)
-    target_var = unnorm_tgt(target_var.cuda()).cpu()
-    output = unnorm_net(output.view(input.shape[0], ref.J, 3)).view(input.shape[0], -1)
-    loss = ShapeConsistencyCriterion(nViews, supWeight = 1, unSupWeight = args.shapeWeight, M = M)(output.cpu(), target_var, meta)
+    ((sourceInput, sourceLabel, sourceMeta), (targetInput, targetLabel, targetMeta)) = unpack_splitted((input, target, meta))
+    #input_var = input.cuda()
+    #target_var = target
+    source_mpjpe_this, source_mpjpe_r_this, source_shapeLoss = 0, 0, 0
+    target_mpjpe_this, target_mpjpe_r_this, target_shapeLoss = 0, 0, 0
+    loss_src, loss_tgt = 0, 0
+    if sourceInput.nelement() > 0:
+        sourceOutput = model(sourceInput)
+        sourceOutput = unnorm_net(sourceOutput.view(sourceOutput.shape[0], 
+                                  ref.J, 3)).view(sourceOutput.shape[0], -1)
+        sourceLabel = unnorm_tgt(sourceLabel.cuda()).cpu()
+        loss_src = ShapeConsistencyCriterion(1, supWeight = 1, unSupWeight = args.shapeWeight, 
+                                              M = M)(sourceOutput.cpu(), sourceLabel, sourceMeta)
+        source_mpjpe_this = accuracy(sourceOutput.data, sourceLabel.data, sourceMeta)
+        source_mpjpe_r_this = accuracy_dis(sourceOutput.data, sourceLabel.data, sourceMeta)
+        source_shapeLoss = shapeConsistency(sourceOutput.data, sourceMeta, 1, M, split = ds_split)
 
+    if targetInput.nelement() > 0:
+        targetOutput = model(targetInput)
+        targetOutput = unnorm_net(targetOutput.view(targetOutput.shape[0], 
+                                  ref.J, 3)).view(targetOutput.shape[0], -1)
+        targetLabel = unnorm_tgt(targetLabel.cuda()).cpu()
+        loss_tgt = ShapeConsistencyCriterion(nViews, supWeight = 1, unSupWeight = args.shapeWeight, 
+                                               M = M)(targetOutput.cpu(), targetLabel, targetMeta)
+        target_mpjpe_this = accuracy(targetOutput.data, targetLabel.data, targetMeta)
+        target_mpjpe_r_this = accuracy_dis(targetOutput.data, targetLabel.data, targetMeta)
+        target_shapeLoss = shapeConsistency(targetOutput.data, targetMeta, nViews, M, split = ds_split)
+
+   
+    loss = loss_tgt + loss_src
+    shapeLoss = target_shapeLoss + source_shapeLoss 
+    mpjpe_this = target_mpjpe_this + source_mpjpe_this
+    mpjpe_r_this = target_mpjpe_r_this + source_mpjpe_r_this
+    
     '''if ds_split == 'test':
       for j in range(input.numpy().shape[0]):
         img = (input.numpy()[j] * 255).transpose(1, 2, 0).astype(np.uint8)
@@ -165,15 +193,23 @@ def step(args, ds_split, epoch, loader, model, optimizer = None, M = None, f = N
           draw_2d = chair_show2D if ref.category == 'Chair' else human_show2D
           draw_3d = chair_show3D if ref.category == 'Chair' else human_show3D
           numpy_img = (input.numpy()[0] * 255).transpose(1, 2, 0).astype(np.uint8)
-          #filename_2d = os.path.join(args.save_path, 'img2d_%s_%d_%d.png' % (args.expID, i, epoch))
+          filename_2d = os.path.join(args.save_path, 'img2d_%s_%d_%d.png' % (args.expID, i, epoch))
           #cv2.imwrite(filename_2d, numpy_img)
           if i < 10:
-                pred = output.data.cpu().numpy()[0].copy()
-                gt = target.data.cpu().numpy()[0].copy()
+                camera = 0 
+                pred = targetOutput.data[camera].cpu().view(ref.J, 3).numpy().copy()
+                gt = targetLabel.data[camera].cpu().numpy().copy()
+                gt_uncentred = uncentred.data[camera].cpu().numpy().copy()
+                #pred = targetOutput.data.cpu().numpy()[0].copy()
+                #gt = targetLabel.data.cpu().numpy()[0].copy()
                 #numpy_img = draw_2d(numpy_img, pred, (255,0,0))
                 #numpy_img = draw_2d(numpy_img, gt, (0,0,255))
-                #filename_2d = os.path.join(args.save_path, 'img2d_%s_%d_%d.png' % (args.expID, i, epoch))
-                #cv2.imwrite(filename_2d, numpy_img)
+                numpy_img = human_from_3D(numpy_img, gt_uncentred, intrinsics[camera],
+                                    (180,0,0), 224./1000.)
+                numpy_img = human_from_3D(numpy_img, pred - gt_uncentred[0], intrinsics[camera], 
+                                    (0,0,180), 224./1000., flip=True)
+                filename_2d = os.path.join(args.save_path, 'img2d_%s_%d_%d.png' % (args.expID, i, epoch))
+                cv2.imwrite(filename_2d, numpy_img)
                 fig = plt.figure()
                 ax = fig.add_subplot((111), projection='3d')
                 draw_3d(ax, pred, 'r')
@@ -182,11 +218,8 @@ def step(args, ds_split, epoch, loader, model, optimizer = None, M = None, f = N
                 filename_3d = os.path.join(args.save_path, 'img3d_%s_%d_%d.png' % (args.expID, i, epoch))
                 plt.savefig(filename_3d)
                 logger.add_image('Image 3D ' + str(i), (np.asarray(Image.open(filename_3d))).transpose(2,0,1), epoch)
-                #logger.add_image('Image 2D ' + str(i), (np.asarray(Image.open(filename_2d))).transpose(2,0,1), epoch)
-
-    mpjpe_this = accuracy(output.data, target_var.data, meta)
-    mpjpe_r_this = accuracy_dis(output.data, target_var.data, meta)
-    shapeLoss = shapeConsistency(output.data, meta, nViews, M, split = ds_split)
+                logger.add_image('Image 2D ' + str(i), (np.asarray(Image.open(filename_2d))).transpose(2,0,1), epoch)
+                plt.close()
 
     losses.update(loss.item(), input.size(0))
     shapeLosses.update(shapeLoss, input.size(0))

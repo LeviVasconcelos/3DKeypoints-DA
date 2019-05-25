@@ -97,19 +97,19 @@ def main():
       source_valViews = ref.nValViews if args.sourceDataset != 'HumansDepth' else 1
       target_valViews = ref.nValViews if args.targetDataset != 'HumansDepth' else 1
 
-      valSource_dataset = SourceDataset('test', source_valViews, nImages=375) #subjects 5,6 Depth
+      valSource_dataset = SourceDataset('test', source_valViews, nImages=64) #subjects 5,6 Depth
       valSource_loader = torch.utils.data.DataLoader(valSource_dataset, batch_size = 1, 
                         shuffle=False, num_workers=1, pin_memory=True, collate_fn=collate_fn_cat)
       #valTarget_dataset = TargetDataset('test', target_valViews, nImages=375)
-      valTarget_dataset = Humans36mRGBSourceDataset('train', 1, nImages=2000) #subjects 0,1,2 RGB
+      valTarget_dataset = Humans36mRGBSourceDataset('train', 1, nImages=64, meta=-5) #subjects 0,1,2 RGB
       valTarget_loader = torch.utils.data.DataLoader(valTarget_dataset, batch_size = 1, 
                         shuffle=False, num_workers=1, pin_memory=True, collate_fn=collate_fn_cat)
-      testTarget_dataset = TargetDataset('test', 1, nImages=375) #subject 5,6 RGB
-      testTarget_loader = torch.utils.data.DataLoader(testTarget_dataset, batch_size = 1, 
-                        shuffle=False, num_workers=1, pin_memory=True, collate_fn=collate_fn_cat)
-      valTrainTarget_dataset = TargetDataset('train', 1, meta=1) #subjects 3,4 RGB
-      valTrainTarget_loader = torch.utils.data.DataLoader(valTrainTarget_dataset, batch_size = 1, 
-                        shuffle=False, num_workers=1, pin_memory=True, collate_fn=collate_fn_cat)
+      #testTarget_dataset = TargetDataset('test', 1, nImages=375) #subject 5,6 RGB
+      #testTarget_loader = torch.utils.data.DataLoader(testTarget_dataset, batch_size = 1, 
+      #                  shuffle=False, num_workers=1, pin_memory=True, collate_fn=collate_fn_cat)
+      #valTrainTarget_dataset = TargetDataset('train', 1, meta=1) #subjects 3,4 RGB
+      #valTrainTarget_loader = torch.utils.data.DataLoader(valTrainTarget_dataset, batch_size = 1, 
+      #                  shuffle=False, num_workers=1, pin_memory=True, collate_fn=collate_fn_cat)
  
 
       if not args.shapeConsistency and not args.sourceOnly and not args.test:
@@ -192,13 +192,13 @@ def main():
                              unnorm_tgt=unnorm_val_tgt)
             print('initial validation on target')
             validate_priors(args, 'val/Target_source', valTarget_loader, 
-                             model, prior_loss, 0, plot_img=False, 
+                             model, prior_loss, 0, plot_img=True, 
                              logger=logger, 
                              unnorm_net=unnorm_net, 
                              unnorm_tgt=unnorm_val_tgt)
             print('initial validation on train-target')
             validate_priors(args, 'val/Target_train', valTrainTarget_loader, 
-                             model, prior_loss, 0, plot_img=True, 
+                             model, prior_loss, 0, plot_img=False, 
                              logger=logger,
                              unnorm_net=unnorm_net, 
                              unnorm_tgt=unnorm_val_tgt)

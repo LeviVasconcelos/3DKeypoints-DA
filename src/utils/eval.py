@@ -58,8 +58,8 @@ def shapeConsistency(points, meta, nViews, M_, split):
   loss = 0
   
   for g in range(G):
-    if meta[g, 0, 0] < 1 + ref.eps:
-      continue
+    #if meta[g, 0, 0] < 1 + ref.eps:
+    #  continue
     id = int(np.abs(meta[g, 0, 1]))
     M = M_[id].transpose(1, 0)
     for j in range(nViews):

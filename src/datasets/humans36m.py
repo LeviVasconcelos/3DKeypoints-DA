@@ -38,6 +38,8 @@ def Humans36mRGBSourceDataset(split, nViews, nImages=2000, normalized=True, meta
 
 def Humans36mRGBTargetDataset(split, nViews, nImages=2000, normalized=True, meta=5):
       subjects = [3, 4] if split == 'train' else [5,6]
+      if split != 'train':
+          meta *= -1
       return Humans36mDataset(nViews, split, True, nImages, subjects, meta_val=meta, normalized=normalized)
 
 
@@ -47,6 +49,8 @@ def Humans36mDepthSourceDataset(split, nViews, nImages=2000, normalized=True, me
 
 def Humans36mDepthTargetDataset(split, nViews, nImages=2000, normalized=True, meta=5):
       subjects = [3, 4] if split == 'train' else [5,6]
+      if split != 'train':
+          meta *= -1
       return Humans36mDataset(1, split, False, nImages, subjects, meta_val=meta, normalized=normalized)
 
 
@@ -83,7 +87,7 @@ class Humans36mDataset(data.Dataset):
             self._build_indexes()
             self._build_access_index()
             self._build_meta()
-            self._save_dataindex()
+            #self._save_dataindex()
             #else:
             #    print('dataset loaded from cache')
             self._normalization = self._normalize_pose if self.normalized else (lambda a : a)
@@ -126,9 +130,9 @@ class Humans36mDataset(data.Dataset):
             print('Dataset Saved')
                   
       def _build_meta(self):
-            self.meta = np.zeros((self.len, self.kMaxViews, ref.metaDim))
+            self.meta = np.zeros((self.len, self.nViews, ref.metaDim))
             for i in range(self.len):
-                  for j in range(self.kMaxViews):
+                  for j in range(self.nViews):
                         if self.rgb:
                               self.meta[i,j,0] = self.meta_val if self.split == 'train' else -self.meta_val
                         else:

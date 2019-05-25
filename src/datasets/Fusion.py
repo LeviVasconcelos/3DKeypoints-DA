@@ -12,8 +12,8 @@ class Fusion(data.Dataset):
       self.sourceDataset = SourceDataset('train', nViews)
       self.targetDataset = TargetDataset('train', nViews, totalTargetIm)
     else:
-      self.sourceDataset = SourceDataset('train', nViews)
-      self.targetDataset = TargetDataset('train', nViews)#, Images=375)
+      self.sourceDataset = SourceDataset('train', nViews, meta=1, nImages=64)
+      self.targetDataset = TargetDataset('train', nViews, meta=5, nImages=64)
     self.nSourceImages = len(self.sourceDataset)
     self.nTargetImages = int(self.nSourceImages * self.targetRatio)
 
@@ -60,5 +60,5 @@ def unpack_splitted(data):
             print "target label shape:" + str(targetLabel.size())
             print "target meta shape:" + str(targetMeta.size())
             print "target Domain: " + str(targetDomains)
-    return ((sourceInput, sourceLabel, sourceMeta), (targetInput, targetLabel, targetMeta))
+    return ((sourceInput.cuda(), sourceLabel, sourceMeta), (targetInput.cuda(), targetLabel, targetMeta))
       
