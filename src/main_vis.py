@@ -97,11 +97,11 @@ def main():
       source_valViews = ref.nValViews if args.sourceDataset != 'HumansDepth' else 1
       target_valViews = ref.nValViews if args.targetDataset != 'HumansDepth' else 1
 
-      valSource_dataset = SourceDataset('test', source_valViews, nImages=64) #subjects 5,6 Depth
+      valSource_dataset = SourceDataset('test', source_valViews, nImages=375) #subjects 5,6 Depth
       valSource_loader = torch.utils.data.DataLoader(valSource_dataset, batch_size = 1, 
                         shuffle=False, num_workers=1, pin_memory=True, collate_fn=collate_fn_cat)
       #valTarget_dataset = TargetDataset('test', target_valViews, nImages=375)
-      valTarget_dataset = Humans36mRGBSourceDataset('train', 1, nImages=64, meta=-5) #subjects 0,1,2 RGB
+      valTarget_dataset = Humans36mRGBSourceDataset('train', 1, nImages=375, meta=-5) #subjects 0,1,2 RGB
       valTarget_loader = torch.utils.data.DataLoader(valTarget_dataset, batch_size = 1, 
                         shuffle=False, num_workers=1, pin_memory=True, collate_fn=collate_fn_cat)
       #testTarget_dataset = TargetDataset('test', 1, nImages=375) #subject 5,6 RGB
@@ -226,10 +226,10 @@ def main():
             if ref.category == 'Chair':
                   Y, Y_raw = getY(SourceDataset('train', args.nViews))
             else: 
-                  Y, Y_raw = getYHumans(SourceDataset('train', args.nViews))
-            np.save('RotatedY-' + args.sourceDataset + '.npy', Y)
-            np.save('RotatedYRaw-' + args.sourceDataset + '.npy', Y_raw)
-            print 'RotatedY-' + args.sourceDataset + '.npy' + ' Was saved...'
+                  Y = getYHumans(trainSource_dataset)
+            #np.save('RotatedY-' + args.sourceDataset + '.npy', Y)
+            #np.save('RotatedYRaw-' + args.sourceDataset + '.npy', Y_raw)
+            #print 'RotatedY-' + args.sourceDataset + '.npy' + ' Was saved...'
             M = initLatent(trainTarget_loader, model, Y, 
                             nViews = args.nViews, S = args.sampleSource, 
                             AVG = args.AVG, dial=DIAL)

@@ -39,7 +39,7 @@ def getYHumans(dataset):
     _, y, _, _, _  = dataset.__getitem__(i)
     for k in range(dataset.nViews):
         Y_raw[(i*dataset.nViews) + k] = y[k].copy()
-  return Y_raw, Y_raw
+  return Y_raw
  
   
 def initLatent(loader, model, Y, nViews, S, AVG = False, dial=False):
