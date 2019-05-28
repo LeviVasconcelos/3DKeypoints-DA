@@ -104,9 +104,9 @@ def main():
       valTarget_dataset = Humans36mRGBSourceDataset('train', 1, nImages=375, meta=-5) #subjects 0,1,2 RGB
       valTarget_loader = torch.utils.data.DataLoader(valTarget_dataset, batch_size = 1, 
                         shuffle=False, num_workers=1, pin_memory=True, collate_fn=collate_fn_cat)
-      #testTarget_dataset = TargetDataset('test', 1, nImages=375) #subject 5,6 RGB
-      #testTarget_loader = torch.utils.data.DataLoader(testTarget_dataset, batch_size = 1, 
-      #                  shuffle=False, num_workers=1, pin_memory=True, collate_fn=collate_fn_cat)
+      testTarget_dataset = TargetDataset('test', 1, nImages=375, meta=-5) #subject 5,6 RGB
+      testTarget_loader = torch.utils.data.DataLoader(testTarget_dataset, batch_size = 1, 
+                        shuffle=False, num_workers=1, pin_memory=True, collate_fn=collate_fn_cat)
       #valTrainTarget_dataset = TargetDataset('train', 1, meta=1) #subjects 3,4 RGB
       #valTrainTarget_loader = torch.utils.data.DataLoader(valTrainTarget_dataset, batch_size = 1, 
       #                  shuffle=False, num_workers=1, pin_memory=True, collate_fn=collate_fn_cat)
@@ -205,11 +205,19 @@ def main():
 
 
       elif not args.sourceOnly:
-            validate(args, 'val/Target', valTarget_loader, 
+            print('starting validation on target_012')
+            validate(args, 'val/Target_012', valTarget_loader, 
+                      model, None, 0, visualize=False, 
+                      logger=logger, 
+                      unnorm_net=unnorm_net, 
+                      unnorm_tgt=unnorm_val_tgt)
+            print('starting validation on target_56')
+            validate(args, 'val/Target_56', testTarget_loader, 
                       model, None, 0, visualize=True, 
                       logger=logger, 
                       unnorm_net=unnorm_net, 
                       unnorm_tgt=unnorm_val_tgt)
+            print('starting validation on source')
             validate(args, 'val/Source', valSource_loader, 
                       model, None, 0, 
                       logger=logger,
@@ -267,11 +275,17 @@ def main():
                                         call_count=call_count, dial=DIAL)
                         call_count += 1
                   if epoch % 2 == 0:
-                        validate(args, 'val/Target', valTarget_loader, model, 
-                                  None, epoch, visualize=True, 
+                        validate(args, 'val/Target_012', valTarget_loader, model, 
+                                  None, epoch, visualize=False, 
                                   logger=logger, 
                                   unnorm_net=unnorm_net,
                                   unnorm_tgt=unnorm_val_tgt)
+                        validate(args, 'val/Target_56', testTarget_loader, 
+                                  model, None, epoch, visualize=True, 
+                                  logger=logger, 
+                                  unnorm_net=unnorm_net, 
+                                  unnorm_tgt=unnorm_val_tgt)
+
                   if epoch % 5 == 0:
                         validate(args, 'val/Source', valSource_loader, model, 
                                   None, epoch, 
