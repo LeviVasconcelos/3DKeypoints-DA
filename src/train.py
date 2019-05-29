@@ -223,8 +223,8 @@ def step(args, ds_split, epoch, loader, model, optimizer = None, M = None, f = N
 
     losses.update(loss.item(), input.size(0))
     shapeLosses.update(shapeLoss, input.size(0))
-    mpjpe.update(mpjpe_this, input.size(0))
-    mpjpe_r.update(mpjpe_r_this, input.size(0))
+    mpjpe.update(mpjpe_this.item(), input.size(0))
+    mpjpe_r.update(mpjpe_r_this.item(), input.size(0))
     
     if ds_split == 'train':
       optimizer.zero_grad()
@@ -233,9 +233,9 @@ def step(args, ds_split, epoch, loader, model, optimizer = None, M = None, f = N
     
     if 'val' in ds_split:
       tag = ds_split.split('/')[-1]
-      logger.add_scalar('val/' + tag + '-accuracy', mpjpe_this, epoch)
+      logger.add_scalar('val/' + tag + '-accuracy', mpjpe.avg, epoch)
       logger.add_scalar('val/' + tag + '-regr-loss', losses.avg, epoch)
-      logger.add_scalar('val/' + tag + '-unsup-loss', mpjpe_r_this, epoch)
+      logger.add_scalar('val/' + tag + '-unsup-loss', mpjpe_r.avg, epoch)
  
     
     Bar.suffix = '{split:10}: [{0:2}][{1:3}/{2:3}] | Total: {total:} | ETA: {eta:} | Loss {loss.avg:.6f} | shapeLoss {shapeLoss.avg:.6f} | AE {mpjpe.avg:.6f} | ShapeDis {mpjpe_r.avg:.6f}'.format(epoch, i, len(loader), total=bar.elapsed_td, eta=bar.eta_td, loss=losses, mpjpe=mpjpe, split = ds_split, shapeLoss = shapeLosses, mpjpe_r = mpjpe_r)
