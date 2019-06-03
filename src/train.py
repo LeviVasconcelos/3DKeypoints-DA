@@ -233,10 +233,6 @@ def step(args, ds_split, epoch, loader, model, optimizer = None, M = None, f = N
     
     if 'val' in ds_split:
       tag = ds_split.split('/')[-1]
-      print('DEBUG HUANG VIS')
-      print('mpjpe avarage:', mpjpe.avg)
-      print('loss',losses.avg)
-      print('shape_loss',mpjpe_r.avg)
       logger.add_scalar('val/' + tag + '-accuracy', mpjpe.avg, epoch)
       logger.add_scalar('val/' + tag + '-regr-loss', losses.avg, epoch)
       logger.add_scalar('val/' + tag + '-unsup-loss', mpjpe_r.avg, epoch)

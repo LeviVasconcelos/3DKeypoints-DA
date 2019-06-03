@@ -101,7 +101,7 @@ def main():
       valSource_loader = torch.utils.data.DataLoader(valSource_dataset, batch_size = 1, 
                         shuffle=False, num_workers=1, pin_memory=True, collate_fn=collate_fn_cat)
       #valTarget_dataset = TargetDataset('test', target_valViews, nImages=375)
-      valTarget_dataset = Humans36mRGBSourceDataset('train', 1, nImages=375, meta=-5) #subjects 0,1,2 RGB
+      valTarget_dataset = Humans36mDepthSourceDataset('train', 1, nImages=375, meta=-5) #subjects 0,1,2 RGB
       valTarget_loader = torch.utils.data.DataLoader(valTarget_dataset, batch_size = 1, 
                         shuffle=False, num_workers=1, pin_memory=True, collate_fn=collate_fn_cat)
       testTarget_dataset = TargetDataset('test', 1, nImages=375, meta=-5) #subject 5,6 RGB
