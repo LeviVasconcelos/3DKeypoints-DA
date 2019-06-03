@@ -10,7 +10,7 @@ import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
 import mpl_toolkits.mplot3d
 from mpl_toolkits.mplot3d import Axes3D
-
+from utils.utils import createDirIfNonExistent
 args = opts().parse()
 
 
@@ -51,15 +51,15 @@ def DrawImage(img, prediction, gt_, uncentred, intrinsics, tag='', draw_gt=False
     pred = rotate(pred, gt)
     gt_uncentred = uncentred.copy()
     if draw_gt:
-        numpy_img = human_from_3D(numpy_img, gt_uncentred, intrinsics[camera],
-                                    (180,0,0), 224./1000.)
+        numpy_img = human_from_3D(numpy_img, gt_uncentred, intrinsics,
+                                    (0,0,180), 224./1000.)
     else:
         numpy_img = human_from_3D(numpy_img, pred + gt_uncentred[0], intrinsics, 
-                                    (0,180,0), 224./1000., flip=False)
+                                    (180,0,0), 224./1000., flip=False)
     return numpy_img
 
 def draw_skeleton(img, skeleton, tag, draw_gt=False):
-    return DrawImage(img, skeleton['pred'], skeleton['gt'], skeleton['gt_uncentred'], skeleton['intrinsics'], tag=tag, draw_gt)
+    return DrawImage(img, skeleton['pred'], skeleton['gt'], skeleton['gt_uncentred'], skeleton['intrinsics'], tag=tag, draw_gt=draw_gt)
 
 def load_folder(path):
     files = [f for f in listdir(path) ]
@@ -85,24 +85,37 @@ def load_data(path):
 def make_pretty(images, titles):
     nImages = len(images)
     assert(nImages == 4)
-    fig = plt.figure()
-    rows = 2
-    cols = 2
+    fig = plt.figure(figsize=(14,3))
+    rows = 1
+    cols = 4
     for i in range(nImages):
-        img = fig.add_subplot((rows, cols, i+1))
+        img = fig.add_subplot(rows, cols, i+1)
         img.set_title(titles[i])
+        img.axis('off')
+        img.set_xlim(224)
+        img.set_ylim(224)
+        img.margins(0)
         plt.imshow(images[i])
     plt.savefig('image.png')
     return cv2.imread('image.png')
+
+
+def save_drawing(img, i):
+    save_root = os.path.join(args.root_folder, 'saved_images')
+    createDirIfNonExistent(save_root) 
+    filename =  os.path.join(save_root, 'img_%d.png' % i)
+    cv2.imwrite(filename, img)
+    with open(os.path.join(save_root, 'indexes.txt'), 'a+') as f:
+        f.write(str(i) + '\n')
+        
 
 def visualize(root_folder):
     _, final_skeletons = load_folder(os.path.join(root_folder, 'final'))
     _, source_skeletons = load_folder(os.path.join(root_folder, 'source'))
     _, middle_skeletons = load_folder(os.path.join(root_folder, 'middle'))
     _, huang_skeletons = load_folder(os.path.join(root_folder, 'huang'))
-    for i in range(len(final_skeletons)):
-       if i > 10:
-           break
+    i = 0
+    while i < len(final_skeletons):
        source_data = load_data(source_skeletons[i])
        middle_data = load_data(middle_skeletons[i])
        final_data = load_data(final_skeletons[i])
@@ -114,15 +127,21 @@ def visualize(root_folder):
        final_img = draw_skeleton(img, final_data, 'final')
        middle_img = draw_skeleton(img, middle_data, 'middle')
        huang_img = draw_skeleton(img, huang_data, 'huang')
-       ground_truth = draw_sekeleton(img, final_data, 'gt', draw_gt=True) 
+       ground_truth = draw_skeleton(img, final_data, 'gt', draw_gt=True) 
        
        titles = ['Baseline', 'Huang', 'Ours', 'GT']
        images = [source_img, huang_img, final_img, ground_truth]
        img = make_pretty(images, titles)
-       cv2.imshow('picker',img)
+       cv2.imshow('picker %d' % i,img)
        key = cv2.waitKey(0)
-       print(key)
-
+       if key == 83:
+          i += 1 
+       elif key == 81:
+           i = i-1 if (i-1) >= 0 else 0
+       elif key == 32:
+           save_drawing(img, i)
+       elif key == 27:
+           break
 
 if __name__ == '__main__':
     visualize(args.root_folder)
