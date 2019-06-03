@@ -79,8 +79,9 @@ class opts():
 
 
     self.parser.add_argument('-debug_folder', default='', type=str, help='where to store debug data')
-    self.parser.add_argument('-root_folder', default='', type=str, help='where to store debug data')
-    
+    self.parser.add_argument('-root_folder', default='', type=str, help='where root data is stored')
+    self.parser.add_argument('-out_folder', default='', type=str, help='where to store out data')
+    self.parser.add_argument('-index_file', default='', type=str, help='file for loading')
   def parse(self):
     self.init()
     self.args = self.parser.parse_args()

@@ -11,6 +11,7 @@ import matplotlib.image as mpimg
 import mpl_toolkits.mplot3d
 from mpl_toolkits.mplot3d import Axes3D
 from utils.utils import createDirIfNonExistent
+from tqdm import tqdm
 args = opts().parse()
 
 
@@ -44,7 +45,7 @@ def rotate(points, gt):
 def SavePose(img, prediction, gt_, uncentred, intrinsics, filename):
     np.savez(filename + 'npz', img=img, pred=prediction, gt=gt_, gt_uncentred=uncentred, intrinsics=intrinsics)
 
-def DrawImage(img, prediction, gt_, uncentred, intrinsics, tag='', draw_gt=False):
+def DrawImage(img, prediction, gt_, uncentred, intrinsics, draw_gt=False):
     numpy_img = img.copy()
     pred = prediction.copy()
     gt = gt_.copy()
@@ -58,8 +59,8 @@ def DrawImage(img, prediction, gt_, uncentred, intrinsics, tag='', draw_gt=False
                                     (180,0,0), 224./1000., flip=False)
     return numpy_img
 
-def draw_skeleton(img, skeleton, tag, draw_gt=False):
-    return DrawImage(img, skeleton['pred'], skeleton['gt'], skeleton['gt_uncentred'], skeleton['intrinsics'], tag=tag, draw_gt=draw_gt)
+def draw_skeleton(img, skeleton, draw_gt=False):
+    return DrawImage(img, skeleton['pred'], skeleton['gt'], skeleton['gt_uncentred'], skeleton['intrinsics'], draw_gt=draw_gt)
 
 def load_folder(path):
     files = [f for f in listdir(path) ]
@@ -97,18 +98,59 @@ def make_pretty(images, titles):
         img.margins(0)
         plt.imshow(images[i])
     plt.savefig('image.png')
+    plt.close()
     return cv2.imread('image.png')
 
 
-def save_drawing(img, i):
-    save_root = os.path.join(args.root_folder, 'saved_images')
+def save_drawing(img, i, root='saved_images'):
+    save_root = os.path.join(args.root_folder, root)
     createDirIfNonExistent(save_root) 
     filename =  os.path.join(save_root, 'img_%d.png' % i)
     cv2.imwrite(filename, img)
     with open(os.path.join(save_root, 'indexes.txt'), 'a+') as f:
         f.write(str(i) + '\n')
-        
 
+
+def generate_filename_from_index(prefix, index):
+    file_name = '%s_img2d_default_0_%s' % (prefix, index)
+    return file_name + '.pngnpz.npz'
+        
+def load_data_from_file(filepath, output_folder):
+    dataset_root = args.root_folder
+    kPrefixes = {'huang':'huang', 'final':'final', 'gt':'gt', 'baseline':'source'}
+    indexes = []
+    with open(filepath, 'r') as file:
+        for i in file:
+            indexes.append(i[0:-1])
+    if len(indexes) == 0:
+        print('no indexes read')
+        return
+    _, final_skeletons = load_folder(os.path.join(args.root_folder, 'final'))
+    _, source_skeletons = load_folder(os.path.join(args.root_folder, 'source'))
+    _, middle_skeletons = load_folder(os.path.join(args.root_folder, 'middle'))
+    _, huang_skeletons = load_folder(os.path.join(args.root_folder, 'huang'))
+    for i in tqdm(indexes):
+        idx = int(i)
+        #print('%d:' % idx, huang_skeletons[idx])
+        huang_data = load_data(huang_skeletons[idx])
+        final_data = load_data(final_skeletons[idx])
+        baseline_data = load_data(source_skeletons[idx])
+ 
+        img = baseline_data['img'] 
+        source_img = draw_skeleton(img, baseline_data)
+        final_img = draw_skeleton(img, final_data)
+        #middle_img = draw_skeleton(img, middle_data)
+        huang_img = draw_skeleton(img, huang_data)
+        ground_truth = draw_skeleton(img, final_data, draw_gt=True) 
+        
+        titles = ['Baseline', 'Zhou et al.', 'Ours', 'GT']
+        images = [source_img, huang_img, final_img, ground_truth]
+        img = make_pretty(images, titles)
+        save_drawing(img, idx, output_folder)
+
+
+
+ 
 def visualize(root_folder):
     _, final_skeletons = load_folder(os.path.join(root_folder, 'final'))
     _, source_skeletons = load_folder(os.path.join(root_folder, 'source'))
@@ -122,14 +164,13 @@ def visualize(root_folder):
        huang_data = load_data(huang_skeletons[i])
        
        img = source_data['img']
-       make_pretty 
-       source_img = draw_skeleton(img, source_data, 'source')
-       final_img = draw_skeleton(img, final_data, 'final')
-       middle_img = draw_skeleton(img, middle_data, 'middle')
-       huang_img = draw_skeleton(img, huang_data, 'huang')
-       ground_truth = draw_skeleton(img, final_data, 'gt', draw_gt=True) 
+       source_img = draw_skeleton(img, source_data)
+       final_img = draw_skeleton(img, final_data)
+       middle_img = draw_skeleton(img, middle_data)
+       huang_img = draw_skeleton(img, huang_data)
+       ground_truth = draw_skeleton(img, final_data, draw_gt=True) 
        
-       titles = ['Baseline', 'Huang', 'Ours', 'GT']
+       titles = ['Baseline', 'Zhou et al.', 'Ours', 'GT']
        images = [source_img, huang_img, final_img, ground_truth]
        img = make_pretty(images, titles)
        cv2.imshow('picker %d' % i,img)

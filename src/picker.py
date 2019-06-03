@@ -110,9 +110,6 @@ def horn87(pointss, pointst):
 
   return r.astype(np.float32), t.astype(np.float32) 
 
-
-
-
 def rotate_Y(points, gt):
     R,t = horn87(points.transpose(), gt.transpose())
     #R = RotMat('Y', math.pi)
@@ -121,7 +118,7 @@ def rotate_Y(points, gt):
 
 
 def SavePose(img, prediction, gt_, uncentred, intrinsics_, filename):
-    np.savez(filename + 'npz', img=img, pred=prediction, 
+    np.savez(filename + '.npz', img=img, pred=prediction, 
               gt=gt_, gt_uncentred=uncentred, intrinsics=np.array(intrinsics_))
 
 def DrawImage(img, prediction, gt_, uncentred, intrinsics, epoch, nViews=4, tag=''):
@@ -143,7 +140,7 @@ def DrawImage(img, prediction, gt_, uncentred, intrinsics, epoch, nViews=4, tag=
 
    
 
-def main():
+def main_humans():
     source_model = loadModel(args.sourceModel)
     middle_model = loadModel(args.middleModel)
     final_model = loadModel(args.finalModel)
@@ -171,5 +168,57 @@ def main():
         DrawImage(numpy_img, final_prediction, unnormed_gt, uncentred, intrinsics, i, tag='final')
         DrawImage(numpy_img, huang_prediction, unnormed_gt, uncentred, intrinsics, i, tag='huang')
 
+
+def ApplyModel_chair(model, input_var, unnorm_net):
+    output = model(input_var).detach()
+    return output 
+
+def SavePose_chair(img, prediction, gt_, uncentred, intrinsics_, filename):
+    np.savez(filename + '.npz', img=img, pred=prediction, 
+              gt=gt_, gt_uncentred=uncentred, intrinsics=np.array(intrinsics_))
+
+def DrawImage_chair(img, prediction, gt_, epoch, nViews=4, tag=''):
+    for i in range(1):
+        numpy_img = img.copy()
+        camera = i 
+        pred = prediction.data[camera].cpu().numpy().copy()
+        gt = gt_.data[camera].cpu().numpy().copy()
+        pred = rotate_Y(pred, gt)
+        filename_2d = os.path.join(args.debug_folder, tag + ('_img2d_%s_%d_%d.png' % (args.expID, i, epoch)))
+        #def chair_show2D(img, points, c, edges = chair_edges, J = ref.J):
+
+        SavePose_chair(img, pred, gt, filename_2d)
+        numpy_img = chair_show2D(numpy_img, gt, (180,0,0))
+        numpy_img = chair_show2D(numpy_img, pred, (0,0,180))
+        cv2.imwrite(filename_2d, numpy_img)
+
+
+def main_chairs():
+    source_model = loadModel(args.sourceModel)
+    middle_model = loadModel(args.middleModel)
+    final_model = loadModel(args.finalModel)
+    huang_model = loadModel(args.huangModel)
+    target_dataset = TargetDataset('test', args.targetNViews)
+    target_loader =  torch.utils.data.DataLoader(target_dataset, batch_size = 1, 
+                                                  shuffle=False, num_workers=1, pin_memory=True, 
+                                                  collate_fn=collate_fn_cat)
+    for i, (input, target, meta) in enumerate(tqdm(target_loader)):
+        input_var = input.to(device).detach()
+        target_var = target.to(device)
+        unnormed_gt = unnorm_tgt(target_var)
+        source_prediction = ApplyModel_chair(source_model, input_var)
+        middle_prediction = ApplyModel_chair(middle_model, input_var)
+        final_prediction = ApplyModel_chair(final_model, input_var) 
+        huang_prediction = ApplyModel_chair(huang_model, input_var) 
+
+
+        numpy_img = (input.numpy()[0] * 255).transpose(1, 2, 0).astype(np.uint8)
+        DrawImage_chair(numpy_img, source_prediction, i, tag='source')
+        DrawImage_chair(numpy_img, middle_prediction, i, tag='middle')
+        DrawImage_chair(numpy_img, final_prediction,  i, tag='final')
+        DrawImage_chair(numpy_img, huang_prediction,  i, tag='huang')
+
+
+
 if __name__ == '__main__':
-    main()
+    main_humans()
