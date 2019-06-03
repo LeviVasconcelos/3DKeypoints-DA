@@ -39,6 +39,10 @@ class opts():
     self.parser.add_argument('-temperature', default=1., type=float, help='temperature')
     self.parser.add_argument('-weight_decay', default=1e-4, type=float, help='weight decay (default: 1e-4)')
     self.parser.add_argument('-loadModel', default='', type=str, help='path to loadmodel (default: none)')
+    self.parser.add_argument('-finalModel', default='', type=str, help='path to loadmodel (default: none)')
+    self.parser.add_argument('-middleModel', default='', type=str, help='path to loadmodel (default: none)')
+    self.parser.add_argument('-sourceModel', default='', type=str, help='path to loadmodel (default: none)')
+    self.parser.add_argument('-huangModel', default='', type=str, help='path to loadmodel (default: none)')
     self.parser.add_argument('-logDir', default='', type=str, help='where to store the tensorboard event catcher')
 
     self.parser.add_argument('-propsFile', default='', type=str, help='where to store props')
@@ -53,7 +57,9 @@ class opts():
     self.parser.add_argument('-totalTargetIm', default=1, type=float, help='training target image num')
     self.parser.add_argument('-targetRatio', default=0, type=float, help='ratio of training target image num')
     self.parser.add_argument('-shapeWeight', default=0, type=float, help='shape consistancy weight')
-    self.parser.add_argument('-nViews', default=8, type=int, help='group for unsupervised constraint')
+    self.parser.add_argument('-sourceNViews', default=4, type=int, help='group for unsupervised constraint')
+    self.parser.add_argument('-targetNViews', default=4, type=int, help='group for unsupervised constraint')
+    self.parser.add_argument('-nViews', default=4, type=int, help='group for unsupervised constraint')
     self.parser.add_argument('-AVG', action = 'store_true', help='')
     
     self.parser.add_argument('-shapenetAnnot', default='No', type=str, help='No | All')
@@ -65,13 +71,15 @@ class opts():
     self.parser.add_argument('-eps', default=0.000001, type = float, help='epsilon')
     self.parser.add_argument('-approx_dial', action = 'store_true', help='train with dial approximation')
     self.parser.add_argument('-dial_fit', action = 'store_true', help='computes dial statistics')
-    self.parser.add_argument('-dial_copy_source', action = 'store_true', help='copy weights from source to target bn')
+    self.parser.add_argument('-dial_copy_source', action = 'store_true', 
+                              help='copy weights from source to target bn')
 
     self.parser.add_argument('-adda', action = 'store_true', help='performs adda stage')
     self.parser.add_argument('-unnormalized', action = 'store_true', help='work with unnormalized data')
 
-    self.parser.add_argument('-debug_folder', default='', type=str, help='where to store debug data')
 
+    self.parser.add_argument('-debug_folder', default='', type=str, help='where to store debug data')
+    self.parser.add_argument('-root_folder', default='', type=str, help='where to store debug data')
     
   def parse(self):
     self.init()

@@ -35,7 +35,6 @@ human_edges =[[0,1], [1,2], [2,3], #right leg
              [7,9], [9,10], [10, 11], #left arm
              [7,12], [12, 13], [13, 14]] #right arm 
 
-
 def human_show3D(ax, points, c = 'k', edges = human_edges, J = ref.J):
       show3D(ax, points, c, edges, J)
 
@@ -94,8 +93,8 @@ def human_show2D(img_, points, c):
       points = points.astype(np.int32)
       points[:, 0], points[:, 1] = points[:, 1].copy(), points[:, 0].copy()
       for j in range(points.shape[0]):
-        x = points[j, 0] if points[j, 0] > 0 else -points[j, 0]
-        y = points[j, 1] if points[j, 1] > 0 else -points[j, 1]
+        x = points[j, 0] if points[j, 0] > 0 else points[j, 0]
+        y = points[j, 1] if points[j, 1] > 0 else points[j, 1]
         cv2.circle(img, (y, x), 2, c, -1)
       for e in edges:
         id1, id2 = e
@@ -103,6 +102,8 @@ def human_show2D(img_, points, c):
       return img
 
 def project_mono_2d(pose3d, proj, scale = 1):
+      #print('proj', proj.shape)
+      #print('pose', pose3d.shape)
       x3d = np.stack([pose3d[:, 0], pose3d[:, 2]], axis=-1)
       x_coord_2d = np.dot(x3d, proj[:2]) / pose3d[:,2] * scale
       y3d = np.stack([pose3d[:, 1], pose3d[:, 2]], axis=-1)

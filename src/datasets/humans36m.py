@@ -255,7 +255,8 @@ class Humans36mDataset(data.Dataset):
                   to_use_images = np.arange(last_subject,i,1)[:self.imagesPerSubject]
                   #self.access_order += np.random.permutation(np.arange(last_subject,i,1))
                   #                                            [:self.imagesPerSubject].tolist()
-                  self.access_order += np.random.permutation(to_use_images).tolist()
+                  #self.access_order += np.random.permutation(to_use_images).tolist()
+                  self.access_order += to_use_images.tolist()
                   last_subject = i
             np.random.shuffle(self.access_order)
             self.len = len(self.access_order)
