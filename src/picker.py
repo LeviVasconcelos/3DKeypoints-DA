@@ -267,4 +267,5 @@ def main_chairs():
 
 
 if __name__ == '__main__':
-    main_chairs()
+    main_humans()
+

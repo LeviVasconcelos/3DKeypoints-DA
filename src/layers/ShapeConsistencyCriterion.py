@@ -3,6 +3,7 @@ from torch.autograd import Function
 import numpy as np
 from utils.horn87 import horn87, RotMat
 import ref
+from profilehooks import profile
 
 class ShapeConsistencyCriterion(Function):
   def __init__(self, nViews, supWeight = 1, unSupWeight = 1, M = None):
@@ -12,6 +13,7 @@ class ShapeConsistencyCriterion(Function):
     self.unSupWeight = unSupWeight
     self.M = M
 
+  @profile
   def forward(self, input, target_, meta_):
     target = target_.numpy()
     G = target.shape[0] / self.nViews
@@ -44,6 +46,7 @@ class ShapeConsistencyCriterion(Function):
     self.save_for_backward(input, target_, meta_)
     return torch.ones(1) * output
 
+  @profile
   def backward(self, grad_output):
     input, target_, meta_ = self.saved_tensors
     grad_input = torch.zeros(input.shape)

@@ -10,6 +10,7 @@ from scipy.misc import toimage
 from torchviz import make_dot
 import math
 import os
+from profilehooks import profile
 
 ###########################
 #### LOSS DEFINITIONS #####
@@ -17,7 +18,8 @@ import os
 '''First loss, create synth gt through 
 the current predictions and the priors'''
 
-EDGES = ref.human_edges 
+#EDGES = ref.human_edges 
+EDGES = ref.chair_edges 
 
 class AbstractPriorLoss(nn.Module):
   def __init__(self, path, J=10, eps = 10**(-6), device='cuda', norm='l2', distances_refinement=None):
@@ -289,6 +291,7 @@ class PriorSMACOFCriterion(AbstractPriorLoss):
             self.debug_counter = 0
     return self.forward_objective(prediction, dt)
 
+  @profile
   def forward_objective(self, prediction, dt=None):
     prediction = prediction.view(prediction.shape[0], self.J, -1)
     dt = dt.view(dt.shape[0], self.J, -1)
@@ -383,6 +386,7 @@ class PriorSMACOFCriterion(AbstractPriorLoss):
         return first_term + second_term + third_term
 
 
+  @profile
   def iterate(self,x,delta, w=None, iters=10, use_w=False):
         delta = delta.view(delta.shape[0],self.J, self.J)
         #### Compute the second term: \sum_{i<j} w_{ij} d^2_{ij}(X) = trace(X'VX)####
@@ -456,10 +460,10 @@ def load_priors_from_file(root_folder, device='cuda', eps=10**(-6)):
       #kStdDistsFilename = 'HumansRGB_StdDists.npy'
       #kMeanFilename = 'HumansRGB_MeanProp.npy'
       #kStdFilename = 'HumansRGB_StdProp.npy'
-      kMeanDistsFilename = 'HumansDepth_MeanDists.npy'
-      kStdDistsFilename = 'HumansDepth_StdDists.npy'
-      kMeanFilename = 'HumansDepth_MeanProp.npy'
-      kStdFilename = 'HumansDepth_StdProp.npy'
+      kMeanDistsFilename = 'ModelNet_MeanDists.npy'
+      kStdDistsFilename = 'ModelNet_StdDists.npy'
+      kMeanFilename = 'ModelNet_MeanProp.npy'
+      kStdFilename = 'ModelNet_StdProp.npy'
 
 
       dist_mean = torch.from_numpy(np.load(os.path.join(root_folder, kMeanDistsFilename))).float()

@@ -73,8 +73,11 @@ class Humans36mDataset(data.Dataset):
                         ('S7', '15', '2'), # TOF video does not exists.
                         ('S5', '4', '2'), # TOF video does not exists.
                         }
-            kSubjects = np.asarray(['S1', 'S5', 'S6', 'S7', 'S8', 'S9', 'S11'])
+            #kSubjects = np.asarray(['S1', 'S5', 'S6', 'S7', 'S8', 'S9', 'S11'])
+            kSubjects = np.asarray(['S11'])
+            subjects = [0]
             self.subjects_to_include = kSubjects[subjects]
+            #self.subjects_to_include = kSubjects[0]
             self.kFolders = {
                         'rgb_cameras' : 'imageSequence',
                         'tof_data' : 'ToFSequence'
@@ -219,18 +222,27 @@ class Humans36mDataset(data.Dataset):
                               #                                                                    and Cameras
                               ]
             #print(subactions)
-            last_subject, _, _ = subactions[0]
-            for subject, action, subaction in tqdm(subactions):
-                  if (subject, action, subaction) in self.kBlacklist:
-                        continue
-                  if last_subject != subject:
-                        last_subject = subject
-                        self.subject_max_idx += [len(self.dataset_indexes)]
-                  indexes, poses = self._process_subaction(subject, action, subaction)
-                  self.all_poses = (poses if len(self.all_poses) == 0 \
-                                     else np.concatenate((self.all_poses, poses)))
-                  self.dataset_indexes += indexes
+
+            print('suabctions: ', len(subactions))
+            act = 28 
+            last_subject, _, _ = subactions[act]
+            # *********************************   UNCOMMENT THIS FOR NORMAL DATASET BEHAVIOUR *************************
+            #for subject, action, subaction in tqdm(subactions):
+            #      if (subject, action, subaction) in self.kBlacklist:
+            #            continue
+            #      if last_subject != subject:
+            #            last_subject = subject
+            #            self.subject_max_idx += [len(self.dataset_indexes)]
+            #      indexes, poses = self._process_subaction(subject, action, subaction)
+            #      self.all_poses = (poses if len(self.all_poses) == 0 \
+            #                         else np.concatenate((self.all_poses, poses)))
+            #      self.dataset_indexes += indexes
             #print('Subject max idxes: ', self.subject_max_idx)
+            subject, action, subaction = subactions[act]
+            indexes, poses = self._process_subaction(subject, action, subaction)  # COMMENT THIS IF NOT GENERATING VIDEO ***** 
+            self.all_poses = (poses if len(self.all_poses) == 0 \
+                               else np.concatenate((self.all_poses, poses)))       
+            self.dataset_indexes += indexes                                       # COMMENT THIS IF NOT GENERATING VIDEO ****   
             self.subject_max_idx += [len(self.dataset_indexes)]
             self.len = len(self.dataset_indexes)
             self._compute_pose_statistics_and_free_poses()
@@ -258,7 +270,7 @@ class Humans36mDataset(data.Dataset):
                   #self.access_order += np.random.permutation(to_use_images).tolist()
                   self.access_order += to_use_images.tolist()
                   last_subject = i
-            np.random.shuffle(self.access_order)
+            #np.random.shuffle(self.access_order)
             self.len = len(self.access_order)
             self.nImages = self.len * self.nViews
             
