@@ -20,6 +20,7 @@ from layers.PriorConsistencyCriterion import compute_rotation_loss
 import os
 import copy
 
+from profilehooks import profile
 import mpl_toolkits.mplot3d
 from mpl_toolkits.mplot3d import Axes3D
 
@@ -113,7 +114,7 @@ def compute_images3D(img, pred, gt, index):
     
 
 
-
+@profile
 def train_step(args, split, epoch, loader, model, loss, update_bn=True, 
                 logger=None, optimizer = None, M = None, f = None, 
                 nViews=ref.nViews,device='cuda', threshold = 0.9, 

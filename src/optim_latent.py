@@ -8,8 +8,8 @@ from utils.horn87 import horn87, RotMat, Dis
 from progress.bar import Bar
 from utils.debugger import Debugger
 import torch
-from profilehooks import profile
 
+from profilehooks import profile
 oo = 1e18
 
 DEBUG = False
