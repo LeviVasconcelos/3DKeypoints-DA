@@ -130,7 +130,8 @@ def train_step(args, split, epoch, loader, model, loss, update_bn=True,
   idx_0 = len(loader)*epoch
 
   loss.epoch = epoch
-  for i, (input, target, _, _, _) in enumerate(loader):
+  #for i, (input, target, _, _, _) in enumerate(loader):
+  for i, (input, target, _,) in enumerate(loader):
     input_var = input.to(device)
     target_var = target.to(device)
     output = model(input_var)
@@ -161,7 +162,7 @@ def eval_step(args, ds_split, epoch, loader, model, loss, update=True, optimizer
   regr_loss = []
   accuracy_this = []
   accuracy_shape = []
-
+  return # ******************************** UNCOMMENT IF NOT PROFILING ***************************
   model.eval()
   if update:
     print('Updating BN layers')

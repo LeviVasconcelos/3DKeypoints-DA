@@ -14,6 +14,7 @@ import ref
 from progress.bar import Bar
 from layers.ShapeConsistencyCriterion import ShapeConsistencyCriterion
 from datasets.Fusion import unpack_splitted
+from profilehooks import profile
 
 '''
 input shape:torch.Size([64, 3, 224, 224])
@@ -117,6 +118,7 @@ def source_only_eval(args, ds_split, epoch, loader, model, plot_img = False, log
                 
       return regr_loss_mean, accuracy_mean, accuracy_shape_mean
 
+@profile
 def step(args, ds_split, epoch, loader, model, optimizer = None, M = None, f = None, tag = None, dial=False, nViews=ref.nViews, visualize=False, logger=None, unnorm_net=(lambda pose:pose), unnorm_tgt=(lambda pose:pose)):
   losses, mpjpe, mpjpe_r = AverageMeter(), AverageMeter(), AverageMeter()
   viewLosses, shapeLosses, supLosses = AverageMeter(), AverageMeter(), AverageMeter()
@@ -132,7 +134,8 @@ def step(args, ds_split, epoch, loader, model, optimizer = None, M = None, f = N
     print 'dial activated (from train function)'
     model.eval()
   numpy_imgs = None
-  for i, (input, target, meta, uncentred, intrinsics) in enumerate(loader):
+  #for i, (input, target, meta, uncentred, intrinsics) in enumerate(loader):
+  for i, (input, target, meta) in enumerate(loader):
     if __DEBUG:
       print "input shape:" + str(input.size())
       print "target shape:" + str(target.size())
@@ -348,7 +351,8 @@ def train(args, train_loader, model, optimizer, M, epoch, dial=False, nViews=ref
   return step(args, 'train', epoch, train_loader, model, optimizer, M = M, dial=dial, unnorm_net=unnorm_net, unnorm_tgt=unnorm_tgt)
 
 def validate(args, supTag, val_loader, model, M, epoch, visualize=False, logger=None, unnorm_net=(lambda pose:pose), unnorm_tgt=(lambda pose:pose)):
-  return step(args, 'val' + supTag, epoch, val_loader, model, M = M, visualize=visualize, logger=logger, unnorm_net=unnorm_net, unnorm_tgt=unnorm_tgt)
+  return
+  #return step(args, 'val' + supTag, epoch, val_loader, model, M = M, visualize=visualize, logger=logger, unnorm_net=unnorm_net, unnorm_tgt=unnorm_tgt)
 
 def test(args, loader, model, M, f, tag):
   return step(args, 'test', 0, loader, model, M = M, f = f, tag = tag)

@@ -12,7 +12,7 @@ import torchvision.datasets as datasets
 from layers.PriorConsistencyCriterion import PriorRegressionCriterion, PriorSMACOFCriterion
 
 from tensorboardX import SummaryWriter
-
+import time
 import ref
 import cv2
 import numpy as np
@@ -97,14 +97,14 @@ def main():
       source_valViews = ref.nValViews if args.sourceDataset != 'HumansDepth' else 1
       target_valViews = ref.nValViews if args.targetDataset != 'HumansDepth' else 1
 
-      valSource_dataset = SourceDataset('test', source_valViews, nImages=375) #subjects 5,6 Depth
+      valSource_dataset = SourceDataset('test', source_valViews)#, nImages=375) #subjects 5,6 Depth
       valSource_loader = torch.utils.data.DataLoader(valSource_dataset, batch_size = 1, 
                         shuffle=False, num_workers=1, pin_memory=True, collate_fn=collate_fn_cat)
       #valTarget_dataset = TargetDataset('test', target_valViews, nImages=375)
-      valTarget_dataset = Humans36mDepthSourceDataset('train', 1, nImages=375, meta=-5) #subjects 0,1,2 RGB
-      valTarget_loader = torch.utils.data.DataLoader(valTarget_dataset, batch_size = 1, 
-                        shuffle=False, num_workers=1, pin_memory=True, collate_fn=collate_fn_cat)
-      testTarget_dataset = TargetDataset('test', 1, nImages=375, meta=-5) #subject 5,6 RGB
+      #valTarget_dataset = Humans36mDepthSourceDataset('train', 1)#, nImages=375, meta=-5) #subjects 0,1,2 RGB
+      #valTarget_loader = torch.utils.data.DataLoader(valTarget_dataset, batch_size = 1, 
+      #                  shuffle=False, num_workers=1, pin_memory=True, collate_fn=collate_fn_cat)
+      testTarget_dataset = TargetDataset('test', 1)#, nImages=375, meta=-5) #subject 5,6 RGB
       testTarget_loader = torch.utils.data.DataLoader(testTarget_dataset, batch_size = 1, 
                         shuffle=False, num_workers=1, pin_memory=True, collate_fn=collate_fn_cat)
       #valTrainTarget_dataset = TargetDataset('train', 1, meta=1) #subjects 3,4 RGB
@@ -185,47 +185,48 @@ def main():
 
       if not args.shapeConsistency and not args.sourceOnly:
             print('Initial validation on source')
-            validate_priors(args, 'val/Target_test', testTarget_loader, 
-                             model, prior_loss, 0,
-                             logger=logger, 
-                             unnorm_net=unnorm_net, 
-                             unnorm_tgt=unnorm_val_tgt)
-            print('initial validation on target')
-            validate_priors(args, 'val/Target_source', valTarget_loader, 
-                             model, prior_loss, 0, plot_img=True, 
-                             logger=logger, 
-                             unnorm_net=unnorm_net, 
-                             unnorm_tgt=unnorm_val_tgt)
-            print('initial validation on train-target')
-            validate_priors(args, 'val/Target_train', valTrainTarget_loader, 
-                             model, prior_loss, 0, plot_img=False, 
-                             logger=logger,
-                             unnorm_net=unnorm_net, 
-                             unnorm_tgt=unnorm_val_tgt)
+            #validate_priors(args, 'val/Target_test', testTarget_loader, 
+            #                 model, prior_loss, 0,
+            #                 logger=logger, 
+            #                 unnorm_net=unnorm_net, 
+            #                 unnorm_tgt=unnorm_val_tgt)
+            #print('initial validation on target')
+            #validate_priors(args, 'val/Target_source', valTarget_loader, 
+            #                 model, prior_loss, 0, plot_img=True, 
+            #                 logger=logger, 
+            #                 unnorm_net=unnorm_net, 
+            #                 unnorm_tgt=unnorm_val_tgt)
+            #print('initial validation on train-target')
+            #validate_priors(args, 'val/Target_train', valTrainTarget_loader, 
+            #                 model, prior_loss, 0, plot_img=False, 
+            #                 logger=logger,
+            #                 unnorm_net=unnorm_net, 
+            #                 unnorm_tgt=unnorm_val_tgt)
 
 
       elif not args.sourceOnly:
             print('starting validation on target_012')
-            validate(args, 'val/Target_012', valTarget_loader, 
-                      model, None, 0, visualize=False, 
-                      logger=logger, 
-                      unnorm_net=unnorm_net, 
-                      unnorm_tgt=unnorm_val_tgt)
-            print('starting validation on target_56')
-            validate(args, 'val/Target_56', testTarget_loader, 
-                      model, None, 0, visualize=True, 
-                      logger=logger, 
-                      unnorm_net=unnorm_net, 
-                      unnorm_tgt=unnorm_val_tgt)
-            print('starting validation on source')
-            validate(args, 'val/Source', valSource_loader, 
-                      model, None, 0, 
-                      logger=logger,
-                      unnorm_net=unnorm_net, 
-                      unnorm_tgt=unnorm_val_src)
+            #validate(args, 'val/Target_012', valTarget_loader, 
+            #          model, None, 0, visualize=False, 
+            #          logger=logger, 
+            #          unnorm_net=unnorm_net, 
+            #          unnorm_tgt=unnorm_val_tgt)
+            #print('starting validation on target_56')
+            #validate(args, 'val/Target_56', testTarget_loader, 
+            #          model, None, 0, visualize=True, 
+            #          logger=logger, 
+            #          unnorm_net=unnorm_net, 
+            #          unnorm_tgt=unnorm_val_tgt)
+            #print('starting validation on source')
+            #validate(args, 'val/Source', valSource_loader, 
+            #          model, None, 0, 
+            #          logger=logger,
+            #          unnorm_net=unnorm_net, 
+            #          unnorm_tgt=unnorm_val_src)
 
 
       M = None
+      start = time.time()
       if args.shapeWeight > ref.eps and args.shapeConsistency:
             print 'getY...'
             if args.dialModel:
@@ -274,24 +275,24 @@ def main():
                                         mu = args.mu, S = args.sampleSource, 
                                         call_count=call_count, dial=DIAL)
                         call_count += 1
-                  if epoch % 2 == 0:
-                        validate(args, 'val/Target_012', valTarget_loader, model, 
-                                  None, epoch, visualize=False, 
-                                  logger=logger, 
-                                  unnorm_net=unnorm_net,
-                                  unnorm_tgt=unnorm_val_tgt)
-                        validate(args, 'val/Target_56', testTarget_loader, 
-                                  model, None, epoch, visualize=True, 
-                                  logger=logger, 
-                                  unnorm_net=unnorm_net, 
-                                  unnorm_tgt=unnorm_val_tgt)
+                  #if epoch % 2 == 0:
+                  #      validate(args, 'val/Target_012', valTarget_loader, model, 
+                  #                None, epoch, visualize=False, 
+                  #                logger=logger, 
+                  #                unnorm_net=unnorm_net,
+                  #                unnorm_tgt=unnorm_val_tgt)
+                  #      validate(args, 'val/Target_56', testTarget_loader, 
+                  #                model, None, epoch, visualize=True, 
+                  #                logger=logger, 
+                  #                unnorm_net=unnorm_net, 
+                  #                unnorm_tgt=unnorm_val_tgt)
 
-                  if epoch % 5 == 0:
-                        validate(args, 'val/Source', valSource_loader, model, 
-                                  None, epoch, 
-                                  logger=logger,
-                                  unnorm_net=unnorm_net,
-                                  unnorm_tgt=unnorm_val_src)
+                  #if epoch % 5 == 0:
+                  #      validate(args, 'val/Source', valSource_loader, model, 
+                  #                None, epoch, 
+                  #                logger=logger,
+                  #                unnorm_net=unnorm_net,
+                  #                unnorm_tgt=unnorm_val_src)
                         
             elif not args.sourceOnly:
                   train_priors(args, [trainTarget_loader], model, 
@@ -300,25 +301,25 @@ def main():
                                 unnorm_net=unnorm_train_net, 
                                 unnorm_tgt=unnorm_train_tgt)
                   
-                  if epoch % 2 == 0:
-                        validate_priors(args, 'val/Target_source', valTarget_loader, 
-                                         model, prior_loss, epoch, plot_img=True, 
-                                         logger=logger,
-                                         unnorm_net=unnorm_net, 
-                                         unnorm_tgt=unnorm_val_tgt)
+                  #if epoch % 2 == 0:
+                        #validate_priors(args, 'val/Target_source', valTarget_loader, 
+                        #                 model, prior_loss, epoch, plot_img=True, 
+                        #                 logger=logger,
+                        #                 unnorm_net=unnorm_net, 
+                        #                 unnorm_tgt=unnorm_val_tgt)
 
-                        validate_priors(args, 'val/Target_train', valTrainTarget_loader, 
-                                         model, prior_loss, epoch, plot_img=False, 
-                                         logger=logger,
-                                         unnorm_net=unnorm_net, 
-                                         unnorm_tgt=unnorm_val_tgt)
+                        #validate_priors(args, 'val/Target_train', valTrainTarget_loader, 
+                        #                 model, prior_loss, epoch, plot_img=False, 
+                        #                 logger=logger,
+                        #                 unnorm_net=unnorm_net, 
+                        #                 unnorm_tgt=unnorm_val_tgt)
 
-                  if epoch % 5 == 0:
-                        validate_priors(args, 'val/Target_test', testTarget_loader, 
-                                         model, prior_loss, epoch, 
-                                         logger=logger,
-                                         unnorm_net=unnorm_net, 
-                                         unnorm_tgt=unnorm_val_src)
+                  #if epoch % 5 == 0:
+                        #validate_priors(args, 'val/Target_test', testTarget_loader, 
+                        #                 model, prior_loss, epoch, 
+                        #                 logger=logger,
+                        #                 unnorm_net=unnorm_net, 
+                        #                 unnorm_tgt=unnorm_val_src)
                         
             if epoch % 10 == 0:
                   torch.save({
@@ -327,7 +328,9 @@ def main():
                               'state_dict': model.state_dict(),
                               'optimizer' : optimizer.state_dict(),
                               }, args.save_path+ '/checkpoint_{}.pth.tar'.format(epoch))
+      end = time.time()
       print('Training endend')
+      print('elapsed time: ', end - start)
       logger.close()
 
 

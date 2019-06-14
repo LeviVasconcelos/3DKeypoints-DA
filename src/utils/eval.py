@@ -9,7 +9,7 @@ def accuracy(output, target, meta):
   target = target.cpu().numpy()
   err, cnt = 0, 0
   for i in range(batch_size):
-    if meta[i, 0] < 1 + ref.eps:
+    #if meta[i, 0] < 1 + ref.eps:
       cnt += 1
       for j in range(ref.J):
         err += ((output[i][j * 3] - target[i][j][0]) ** 2 + 
@@ -27,7 +27,7 @@ def accuracy_dis(output, target, meta):
   output = output.cpu().numpy().reshape(batch_size, ref.J, 3)
   err, cnt = 0, 0
   for i in range(batch_size):
-    if meta[i, 0] < 1 + ref.eps:
+    #if meta[i, 0] < 1 + ref.eps:
       cnt += 1
       try:
           R, t = horn87(output[i].transpose(), target[i].transpose())

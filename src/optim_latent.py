@@ -8,6 +8,7 @@ from utils.horn87 import horn87, RotMat, Dis
 from progress.bar import Bar
 from utils.debugger import Debugger
 import torch
+from profilehooks import profile
 
 oo = 1e18
 
@@ -20,7 +21,7 @@ MAX_LATENT_COUNT = 10
 def createDirIfNonExistent(path):
       if not os.path.isdir(path):
             os.mkdir(path)
-
+@profile
 def getY(dataset):
   N = dataset.nImages
   Y = np.zeros((N, ref.J, 3))
@@ -41,7 +42,7 @@ def getYHumans(dataset):
         Y_raw[(i*dataset.nViews) + k] = y[k].copy()
   return Y_raw
  
-  
+@profile  
 def initLatent(loader, model, Y, nViews, S, AVG = False, dial=False):
   model.eval()
   if dial:
@@ -54,7 +55,8 @@ def initLatent(loader, model, Y, nViews, S, AVG = False, dial=False):
   sum_sigma2 = 0
   cnt_sigma2 = 1
   initial_latent_count = 0
-  for i, (input, target, meta, _, _) in enumerate(loader):
+  #for i, (input, target, meta, _, _) in enumerate(loader):
+  for i, (input, target, meta) in enumerate(loader):
     output = (model(input.cuda()).data).cpu().numpy()
     G = output.shape[0] / nViews
     output = output.reshape(G, nViews, ref.J, 3)
@@ -120,6 +122,7 @@ def initLatent(loader, model, Y, nViews, S, AVG = False, dial=False):
   #print 'mean sigma2', sum_sigma2 / cnt_sigma2
   return M
   
+@profile
 def stepLatent(loader, model, M_, Y, nViews, lamb, mu, S, call_count=-1, dial=False):
   model.eval()
   if dial:
@@ -136,7 +139,8 @@ def stepLatent(loader, model, M_, Y, nViews, lamb, mu, S, call_count=-1, dial=Fa
   Mij = np.zeros((N, ref.J, 3))
   err, num = 0, 0
   latent_count = 0
-  for i, (input, target, meta, _, _) in enumerate(loader):
+  #for i, (input, target, meta, _, _) in enumerate(loader):
+  for i, (input, target, meta) in enumerate(loader):
     output = (model(input.cuda()).data).cpu().numpy()
     G = output.shape[0] / nViews
     output = output.reshape(G, nViews, ref.J, 3)
