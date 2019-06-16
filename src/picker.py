@@ -30,6 +30,13 @@ from utils.utils import collate_fn_cat
 from train_with_priors import  train_priors, validate_priors
 import models.DIALResNet as dial
 import cv2
+import matplotlib as mpl
+import matplotlib.pyplot as plt
+import matplotlib.image as mpimg
+import mpl_toolkits.mplot3d
+from mpl_toolkits.mplot3d import Axes3D
+from utils.utils import createDirIfNonExistent
+from tqdm import tqdm
 
 args = opts().parse()
 if args.targetDataset == 'Redwood':
@@ -166,7 +173,7 @@ def SavePose(img, prediction, gt_, uncentred, intrinsics_, filename):
     np.savez(filename + '.npz', img=img, pred=prediction, 
               gt=gt_, gt_uncentred=uncentred, intrinsics=np.array(intrinsics_))
 
-def DrawImage(img, prediction, gt_, uncentred, intrinsics, epoch, nViews=4, tag=''):
+def DrawImage(img, prediction, gt_, uncentred, intrinsics, epoch, nViews=4, tag='', depth=False):
     for i in range(1):
         numpy_img = img.copy()
         camera = i 
@@ -177,13 +184,32 @@ def DrawImage(img, prediction, gt_, uncentred, intrinsics, epoch, nViews=4, tag=
         filename_2d = os.path.join(args.debug_folder, tag + ('_img2d_%s_%d_%d.png' % (args.expID, i, epoch)))
         SavePose(img, pred, gt, gt_uncentred, intrinsics[camera], filename_2d)
         numpy_img = human_from_3D(numpy_img, gt_uncentred, intrinsics[camera],
-                                    (180,0,0), 224./1000.)
+                                    (180,0,0), 224./1000., depth=depth)
         numpy_img = human_from_3D(numpy_img, pred + gt_uncentred[0], intrinsics[camera], 
-                                    (0,0,180), 224./1000., flip=False)
+                                    (0,0,180), 224./1000., depth=depth)
         
         cv2.imwrite(filename_2d, numpy_img)
+    return numpy_img
 
    
+def make_pretty(images, titles):
+    nImages = len(images)
+    assert(nImages == 3)
+    fig = plt.figure(figsize=(14,3))
+    rows = 1
+    cols = 3
+    for i in range(nImages):
+        img = fig.add_subplot(rows, cols, i+1)
+        img.set_title(titles[i])
+        img.axis('off')
+        img.set_xlim(224)
+        img.set_ylim(224)
+        img.margins(0)
+        plt.imshow(images[i])
+    plt.savefig('image.png')
+    plt.close()
+    return cv2.imread('image.png')
+
 
 def main_humans():
     source_model = loadModel(args.sourceModel)
@@ -208,10 +234,14 @@ def main_humans():
 
 
         numpy_img = (input.numpy()[0] * 255).transpose(1, 2, 0).astype(np.uint8)
-        DrawImage(numpy_img, source_prediction, unnormed_gt, uncentred, intrinsics, i, tag='source')
-        DrawImage(numpy_img, middle_prediction, unnormed_gt, uncentred,  intrinsics, i, tag='middle')
-        DrawImage(numpy_img, final_prediction, unnormed_gt, uncentred, intrinsics, i, tag='final')
-        DrawImage(numpy_img, huang_prediction, unnormed_gt, uncentred, intrinsics, i, tag='huang')
+        source_img = DrawImage(numpy_img, source_prediction, unnormed_gt, uncentred, intrinsics, i, tag='source', depth=True)
+        final_img = DrawImage(numpy_img, final_prediction, unnormed_gt, uncentred, intrinsics, i, tag='final', depth=True)
+        huang_img = DrawImage(numpy_img, huang_prediction, unnormed_gt, uncentred, intrinsics, i, tag='huang', depth=True)
+        titles = ['Baseline', 'Zhou et al.', 'Ours']
+        images = [source_img, huang_img, final_img]
+        img = make_pretty(images, titles)
+        filename_2d = os.path.join(args.debug_folder, ('pretty_img2d_%d.png' % (i)))        
+        cv2.imwrite(filename_2d, img)
 
 
 def ApplyModel_chair(model, input_var):

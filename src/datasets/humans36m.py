@@ -224,7 +224,7 @@ class Humans36mDataset(data.Dataset):
             #print(subactions)
 
             print('suabctions: ', len(subactions))
-            act = 28 
+            act = 11 
             last_subject, _, _ = subactions[act]
             # *********************************   UNCOMMENT THIS FOR NORMAL DATASET BEHAVIOUR *************************
             #for subject, action, subaction in tqdm(subactions):

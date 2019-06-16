@@ -18,8 +18,8 @@ from profilehooks import profile
 '''First loss, create synth gt through 
 the current predictions and the priors'''
 
-#EDGES = ref.human_edges 
-EDGES = ref.chair_edges 
+EDGES = ref.human_edges 
+#EDGES = ref.chair_edges 
 
 class AbstractPriorLoss(nn.Module):
   def __init__(self, path, J=10, eps = 10**(-6), device='cuda', norm='l2', distances_refinement=None):
@@ -291,7 +291,7 @@ class PriorSMACOFCriterion(AbstractPriorLoss):
             self.debug_counter = 0
     return self.forward_objective(prediction, dt)
 
-  @profile
+  
   def forward_objective(self, prediction, dt=None):
     prediction = prediction.view(prediction.shape[0], self.J, -1)
     dt = dt.view(dt.shape[0], self.J, -1)
@@ -386,7 +386,7 @@ class PriorSMACOFCriterion(AbstractPriorLoss):
         return first_term + second_term + third_term
 
 
-  @profile
+  
   def iterate(self,x,delta, w=None, iters=10, use_w=False):
         delta = delta.view(delta.shape[0],self.J, self.J)
         #### Compute the second term: \sum_{i<j} w_{ij} d^2_{ij}(X) = trace(X'VX)####
