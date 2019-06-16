@@ -117,7 +117,14 @@ def reflect_dim(pose_, dim = 1):
          pose[i, dim] = abs(pose[i, dim])
       return pose
 
-def human_from_3D(img, points_3d, projection, color = (0,0,180), scale = 1., flip=False):
+def human_from_3D(img, points_3d, projection, color = (0,0,180), scale = 1., depth=False):
+      points_2d = project_mono_2d(points_3d, projection, scale)
+      if depth:
+          shift_x = np.array([18,0])
+          shift_y = np.array([0,5])
+          points_2d += shift_y
+          points_2d += shift_x
+      return human_show2D(img, points_2d, color)
       points_2d = project_mono_2d(points_3d, projection, scale)
       if flip:
           points_2d = reflect_dim(points_2d)
