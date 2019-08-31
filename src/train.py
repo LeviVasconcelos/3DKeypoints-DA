@@ -148,7 +148,7 @@ def step(args, ds_split, epoch, loader, model, optimizer = None, M = None, f = N
         sourceOutput = model(sourceInput)
         sourceOutput = unnorm_net(sourceOutput.view(sourceOutput.shape[0], 
                                   ref.J, 3)).view(sourceOutput.shape[0], -1)
-        sourceLabel = unnorm_tgt(sourceLabel.cuda()).cpu()
+        sourceLabel = unnorm_net(sourceLabel.cuda()).cpu()
         loss_src = ShapeConsistencyCriterion(1, supWeight = 1, unSupWeight = args.shapeWeight, 
                                               M = M)(sourceOutput.cpu(), sourceLabel, sourceMeta)
         source_mpjpe_this = accuracy(sourceOutput.data, sourceLabel.data, sourceMeta)

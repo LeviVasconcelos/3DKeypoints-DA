@@ -202,7 +202,7 @@ def eval_step(args, ds_split, epoch, loader, model, loss, update=True, optimizer
           numpy_img = human_from_3D(numpy_img, gt_uncentred, intrinsics[camera],
                                     (180,0,0), 224./1000.)
           numpy_img = human_from_3D(numpy_img, pred - gt_uncentred[0], intrinsics[camera], 
-                                    (0,0,180), 224./1000., flip=True)
+                                    (0,0,180), 224./1000.)#, flip=True)
           filename_2d = os.path.join(args.save_path, 'img2d_%s_%d_%d.png' % (args.expID, i, epoch))
           cv2.imwrite(filename_2d, numpy_img)
 

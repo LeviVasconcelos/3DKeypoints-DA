@@ -107,9 +107,9 @@ def main():
       testTarget_dataset = TargetDataset('test', 1, nImages=375, meta=-5) #subject 5,6 RGB
       testTarget_loader = torch.utils.data.DataLoader(testTarget_dataset, batch_size = 1, 
                         shuffle=False, num_workers=1, pin_memory=True, collate_fn=collate_fn_cat)
-      #valTrainTarget_dataset = TargetDataset('train', 1, meta=1) #subjects 3,4 RGB
-      #valTrainTarget_loader = torch.utils.data.DataLoader(valTrainTarget_dataset, batch_size = 1, 
-      #                  shuffle=False, num_workers=1, pin_memory=True, collate_fn=collate_fn_cat)
+      valTrainTarget_dataset = TargetDataset('train', 1, meta=1) #subjects 3,4 RGB
+      valTrainTarget_loader = torch.utils.data.DataLoader(valTrainTarget_dataset, batch_size = 1, 
+                        shuffle=False, num_workers=1, pin_memory=True, collate_fn=collate_fn_cat)
  
 
       if not args.shapeConsistency and not args.sourceOnly and not args.test:
@@ -216,7 +216,7 @@ def main():
                       model, None, 0, visualize=True, 
                       logger=logger, 
                       unnorm_net=unnorm_net, 
-                      unnorm_tgt=unnorm_val_tgt)
+                      unnorm_tgt=testTarget_dataset._unnormalize_pose)
             print('starting validation on source')
             validate(args, 'val/Source', valSource_loader, 
                       model, None, 0, 
@@ -284,7 +284,7 @@ def main():
                                   model, None, epoch, visualize=True, 
                                   logger=logger, 
                                   unnorm_net=unnorm_net, 
-                                  unnorm_tgt=unnorm_val_tgt)
+                                  unnorm_tgt=testTarget_dataset._unnormalize_pose)
 
                   if epoch % 5 == 0:
                         validate(args, 'val/Source', valSource_loader, model, 
@@ -318,7 +318,7 @@ def main():
                                          model, prior_loss, epoch, 
                                          logger=logger,
                                          unnorm_net=unnorm_net, 
-                                         unnorm_tgt=unnorm_val_src)
+                                         unnorm_tgt=testTarget_dataset._unnormalize_pose)
                         
             if epoch % 10 == 0:
                   torch.save({

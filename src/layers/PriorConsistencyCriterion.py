@@ -452,14 +452,14 @@ def get_priors_from_file(path, device='cuda', eps=10**(-6)):
 
 def load_priors_from_file(root_folder, device='cuda', eps=10**(-6)):
       #ModelNet_MeanDists.npy  ModelNet_MeanProp.npy  ModelNet_StdDists.npy  ModelNet_StdProp.npy
-      #kMeanDistsFilename = 'HumansRGB_MeanDists.npy'
-      #kStdDistsFilename = 'HumansRGB_StdDists.npy'
-      #kMeanFilename = 'HumansRGB_MeanProp.npy'
-      #kStdFilename = 'HumansRGB_StdProp.npy'
-      kMeanDistsFilename = 'HumansDepth_MeanDists.npy'
-      kStdDistsFilename = 'HumansDepth_StdDists.npy'
-      kMeanFilename = 'HumansDepth_MeanProp.npy'
-      kStdFilename = 'HumansDepth_StdProp.npy'
+      kMeanDistsFilename = 'HumansRGB_MeanDists.npy'
+      kStdDistsFilename = 'HumansRGB_StdDists.npy'
+      kMeanFilename = 'HumansRGB_MeanProp.npy'
+      kStdFilename = 'HumansRGB_StdProp.npy'
+      #kMeanDistsFilename = 'HumansDepth_MeanDists.npy'
+      #kStdDistsFilename = 'HumansDepth_StdDists.npy'
+      #kMeanFilename = 'HumansDepth_MeanProp.npy'
+      #kStdFilename = 'HumansDepth_StdProp.npy'
 
 
       dist_mean = torch.from_numpy(np.load(os.path.join(root_folder, kMeanDistsFilename))).float()
